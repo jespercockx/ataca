@@ -38,8 +38,8 @@ macro
 getHole : Tac Term
 getHole .runTac ret hole = ret hole hole
 
-withHole : Term → Tac A → Tac A
-withHole hole tac .runTac ret _ = tac .runTac ret hole
+setHole : Term → Tac ⊤
+setHole hole .runTac ret _ = ret _ hole
 
 pass : A → Tac A
 pass x .runTac ret = ret x
@@ -174,9 +174,6 @@ now tac = tac >> qed
 
 try : Tac A → Tac (Maybe A)
 try tac = (just <$> tac) <|> return nothing
-
-defer : Term → Tac ⊤
-defer hole = withHole hole $ pass _
 
 commit : Tac A → Tac A
 commit tac = tac <|> skip

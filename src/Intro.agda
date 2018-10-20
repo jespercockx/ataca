@@ -14,7 +14,7 @@ intro' = unlessSolved $ do
   let v = getVisibility a
   unify hole (lam v (body <$ b))
   addCtx a
-  defer body
+  setHole body
 
 macro
   intro : Tactic
