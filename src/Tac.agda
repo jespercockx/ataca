@@ -47,16 +47,8 @@ pass x .runTac ret = ret x
 skip : Tac A
 skip .runTac _ _ = return _
 
-addCtx : Arg Type → Tac ⊤
-addCtx dom .runTac ret hole = TC.extendContext dom $ ret _ hole
-
-{- Horrible hack, hopefully we'll never need this
-withVar : ∀ {a} {A : Set a} → Arg Type → Tac A → Tac A
-withVar dom tac .runTac ret hole = do
-  ctx ← TC.getContext
-  TC.extendContext dom $
-    tac .runTac (λ x hole' → TC.inContext ctx $ ret x hole') hole
--}
+withTC : (TC ⊤ → TC ⊤) → Tac ⊤
+withTC f .runTac ret hole = f $ ret _ hole
 
 fork2 : Tac A → Tac B → Tac (Either A B)
 fork2 tac₁ tac₂ .runTac ret hole = do
@@ -130,35 +122,41 @@ module _ where
   debug s n msg = liftTC $ TC.debugPrint ("tac." <> s) n msg
 
 private
+  fmapTac : (A → B) → Tac A → Tac B
+  fmapTac f tac .runTac ret = tac .runTac $ ret ∘ f
+
   bindTac : Tac A → (A → Tac B) → Tac B
   bindTac tac f .runTac ret = tac .runTac $ λ x → f x .runTac ret
 
+  chooseTac : Tac A → Tac A → Tac A
+  chooseTac tac₁ tac₂ .runTac ret goal =
+    tac₁ .runTac ret goal <|> tac₂ .runTac ret goal
+
 instance
   Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
-  Functor′Tac {{.fmap′}} f tac .runTac ret = tac .runTac $ ret ∘ f
+  Functor′Tac {{.fmap′}} = fmapTac
 
   FunctorTac : Functor {ℓ} Tac
-  FunctorTac {{.fmap}} = fmap′
+  FunctorTac {{.fmap}} = fmapTac
 
   Applicative′Tac : Applicative′ {ℓ} {ℓ′} Tac
   Applicative′Tac {{._<*>′_}} = monadAp′ bindTac
 
   ApplicativeTac : Applicative (Tac {ℓ})
   ApplicativeTac {{.pure }} = pass
-  ApplicativeTac {{._<*>_}} = _<*>′_
+  ApplicativeTac {{._<*>_}} = monadAp bindTac
 
   Monad′Tac : Monad′ {ℓ} {ℓ′} Tac
   Monad′Tac {{._>>=_}} = bindTac
 
   MonadTac : Monad (Tac {ℓ})
-  MonadTac .Monad._>>=_ = _>>=_
+  MonadTac .Monad._>>=_ = bindTac
 
   ZeroTac : FunctorZero (Tac {ℓ})
-  ZeroTac {{.empty}} = fail []
+  ZeroTac {{.empty}} = liftTC empty
 
   AlternativeTac : Alternative (Tac {ℓ})
-  AlternativeTac {{._<|>_}} tac₁ tac₂ .runTac ret goal =
-    tac₁ .runTac ret goal <|> tac₂ .runTac ret goal
+  AlternativeTac {{._<|>_}} = chooseTac
 
 getGoal : Tac (Term × Type)
 getGoal = do
@@ -186,10 +184,12 @@ commit tac = tac <|> skip
 cut : Tac ⊤
 cut = commit $ pass _
 
+addCtx : Arg Type → Tac ⊤
+addCtx dom = withTC $ TC.extendContext dom
+
 repeat : Nat → Tac ⊤ → Tac ⊤
 repeat zero    tac = return _
 repeat (suc k) tac = tac >> repeat k tac
-
 
 fork : {A : Fin n → Set ℓ}
      → ((i : Fin n) → Tac (A i)) → Tac (Σ (Fin n) A)
