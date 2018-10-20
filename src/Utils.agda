@@ -33,14 +33,17 @@ goalErr goal = do
   goalType ← inferType goal
   return $ termErr goal ∷ strErr ":" ∷ termErr goalType ∷ []
 
-{-# TERMINATING #-}
-piArgInfos : Type → TC (List ArgInfo)
-piArgInfos = λ where
+piView : Type → TC (Maybe (Arg Type × Abs Type))
+piView = λ where
     -- HACK: first try without reducing the type to avoid creating
     -- spurious constraints, then try again if that doesn't work.
-    (pi a (abs _ b)) → recurse a b
+    (pi a b) → return $ just (a , b) --return $ just (a , b)
     t → reduce t >>= λ where
-      (pi a (abs _ b)) → recurse a b
-      _                → return []
+      (pi a b) → return $ just (a , b)
+      _        → return nothing
 
-  where recurse = λ a b → (getArgInfo a ∷_) <$> extendContext a (piArgInfos b)
+{-# TERMINATING #-}
+piArgInfos : Type → TC (List ArgInfo)
+piArgInfos t = piView t >>= λ where
+  (just (a , (abs _ b))) → (getArgInfo a ∷_) <$> extendContext a (piArgInfos b)
+  nothing → return []
