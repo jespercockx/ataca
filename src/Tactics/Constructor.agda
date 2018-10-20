@@ -1,9 +1,11 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
+module Tactics.Constructor where
+
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
 open import Tac
-open import Refine
+open import Tactics.Refine
 
 getConstructor : Type → Tac ((List (Arg Term) → Term) × List ArgInfo)
 getConstructor t = do

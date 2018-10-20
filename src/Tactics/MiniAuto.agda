@@ -1,13 +1,15 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
+module Tactics.MiniAuto where
+
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
 
 open import Tac
-open import Assumption
-open import Intro
-open import Constructor
-open import Refine
+open import Tactics.Assumption
+open import Tactics.Intro
+open import Tactics.Constructor
+open import Tactics.Refine
 
 Hints = List Term
 

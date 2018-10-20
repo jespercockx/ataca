@@ -1,5 +1,7 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
+module Tactics.Refine where
+
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
 open import Tac
@@ -14,7 +16,7 @@ refineN' is hd = do
     loop [] hd subgoals       = do
       hole ← getHole
       unify hole (hd [])
-      forEach subgoals defer
+      forEach subgoals setHole
     loop (i ∷ is) hd subgoals = do
       x ← newMeta!
       loop is (hd ∘ (arg i x ∷_)) (x ∷ subgoals)

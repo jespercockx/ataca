@@ -1,5 +1,7 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
+module Tactics.Intro where
+
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
 open import Tac
