@@ -14,17 +14,17 @@ open import Tactic.Reflection as TC hiding
   ; withNormalisation; debugPrint
   ; newMeta; newMeta! ) public
 
-record Goal : Set where
-  field
-    theHole : Term
-    goalCtx : Telescope
-open Goal public
-
-Cont = Goal → TC ⊤
+private
+  record Goal : Set where
+    constructor mkGoal
+    field
+      theHole : Term
+      goalCtx : Telescope
+  open Goal
 
 record Tac {ℓ} (A : Set ℓ) : Set ℓ where
   field
-    runTac : (A → Cont) → Cont
+    runTac : Goal → TC (List (A × Goal))
 open Tac
 
 toMacro : Tac ⊤ → Tactic
@@ -36,7 +36,7 @@ toMacro tac hole = do
     strErr "Running tactic" ∷ termErr `tac     ∷
     strErr "on hole"        ∷ termErr hole     ∷
     strErr ":"              ∷ termErr holeType ∷ []
-  tac .runTac (λ _ _ → return _) λ where
+  void $ tac .runTac λ where
     .theHole → hole
     .goalCtx → ctx
 
@@ -44,45 +44,45 @@ macro
   run : Tac ⊤ → Tactic
   run tac = toMacro tac
 
+
 getHole : Tac Term
-getHole .runTac ret goal = ret (goal .theHole) goal
+getHole .runTac goal = return [ (goal .theHole) , goal ]
 
 setHole : Term → Tac ⊤
-setHole hole .runTac ret goal = ret _ λ where
-  .theHole → hole
-  .goalCtx → goal .goalCtx
+setHole hole .runTac goal = return [ _ , mkGoal hole (goal .goalCtx) ]
 
 addCtx : Arg Type → Tac ⊤
-addCtx b .runTac ret goal = ret _ λ where
-  .theHole → goal .theHole
-  .goalCtx → b ∷ goal .goalCtx
+addCtx b .runTac goal = return [ _ , mkGoal (goal .theHole) (b ∷ goal .goalCtx) ]
 
 pass : A → Tac A
-pass x .runTac ret = ret x
+pass x .runTac goal = return [ x , goal ]
 
 skip : Tac A
-skip .runTac _ _ = return _
+skip .runTac _ = return []
 
 fork2 : Tac A → Tac B → Tac (Either A B)
-fork2 tac₁ tac₂ .runTac ret hole = do
-  tac₁ .runTac (ret ∘ left ) hole
-  tac₂ .runTac (ret ∘ right) hole
+fork2 tac₁ tac₂ .runTac goal = do
+  xs ← map (first left)  <$>′ tac₁ .runTac goal
+  ys ← map (first right) <$>′ tac₂ .runTac goal
+  return $ xs ++ ys
 
 liftTC : TC A → Tac A
-liftTC m .runTac ret goal = do
+liftTC m .runTac goal = do
   x ← foldl (flip TC.extendContext) m (goal .goalCtx)
-  ret x goal
+  return [ x , goal ]
 
 private
   fmapTac : (A → B) → Tac A → Tac B
-  fmapTac f tac .runTac ret = tac .runTac $ ret ∘ f
+  fmapTac f tac .runTac goal = fmap′ (fmap′ (first f)) $ tac .runTac goal
 
   bindTac : Tac A → (A → Tac B) → Tac B
-  bindTac tac f .runTac ret = tac .runTac $ λ x → f x .runTac ret
+  bindTac tac f .runTac goal = do
+    xs ← tac .runTac goal
+    concat <$> traverse′ (λ { (x , subgoal) → f x .runTac subgoal }) xs
 
   chooseTac : Tac A → Tac A → Tac A
-  chooseTac tac₁ tac₂ .runTac ret goal =
-    tac₁ .runTac ret goal <|> tac₂ .runTac ret goal
+  chooseTac tac₁ tac₂ .runTac goal =
+    tac₁ .runTac goal <|> tac₂ .runTac goal
 
 instance
   Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
