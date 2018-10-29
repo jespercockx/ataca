@@ -9,7 +9,7 @@ open import Tactics.Exact
 
 admit' : Tac A
 admit' = do
-  hole , holeType ← getGoal
+  hole , holeType ← getHoleWithType
   x ← freshName "ADMIT"
   declarePostulate (arg (arg-info visible relevant) x) holeType
   exact' (def x [])

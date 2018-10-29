@@ -32,7 +32,7 @@ getConstructor t = do
 
 introConstructor' : Tac ⊤
 introConstructor' = do
-  _ , holeType ← getGoal
+  _ , holeType ← getHoleWithType
   debug "constr" 20 $ strErr "Hole type: " ∷ termErr holeType ∷ []
   c , is ← getConstructor holeType
   refineN' is c

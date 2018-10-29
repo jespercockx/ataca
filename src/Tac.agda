@@ -14,7 +14,13 @@ open import Tactic.Reflection as TC hiding
   ; withNormalisation; debugPrint
   ; newMeta; newMeta! ) public
 
-Cont = Term → TC ⊤
+record Goal : Set where
+  field
+    theHole : Term
+    goalCtx : Telescope
+open Goal public
+
+Cont = Goal → TC ⊤
 
 record Tac {ℓ} (A : Set ℓ) : Set ℓ where
   field
@@ -22,33 +28,40 @@ record Tac {ℓ} (A : Set ℓ) : Set ℓ where
 open Tac
 
 toMacro : Tac ⊤ → Tactic
-toMacro tac goal = do
+toMacro tac hole = do
   `tac ← quoteTC tac
-  goalType ← TC.inferType goal
+  holeType ← TC.inferType hole
+  ctx ← TC.getContext
   TC.debugPrint "tac" 5 $
     strErr "Running tactic" ∷ termErr `tac     ∷
-    strErr "on goal"        ∷ termErr goal     ∷
-    strErr ":"              ∷ termErr goalType ∷ []
-  tac .runTac (λ _ _ → return _) goal
+    strErr "on hole"        ∷ termErr hole     ∷
+    strErr ":"              ∷ termErr holeType ∷ []
+  tac .runTac (λ _ _ → return _) λ where
+    .theHole → hole
+    .goalCtx → ctx
 
 macro
   run : Tac ⊤ → Tactic
   run tac = toMacro tac
 
 getHole : Tac Term
-getHole .runTac ret hole = ret hole hole
+getHole .runTac ret goal = ret (goal .theHole) goal
 
 setHole : Term → Tac ⊤
-setHole hole .runTac ret _ = ret _ hole
+setHole hole .runTac ret goal = ret _ λ where
+  .theHole → hole
+  .goalCtx → goal .goalCtx
+
+addCtx : Arg Type → Tac ⊤
+addCtx b .runTac ret goal = ret _ λ where
+  .theHole → goal .theHole
+  .goalCtx → b ∷ goal .goalCtx
 
 pass : A → Tac A
 pass x .runTac ret = ret x
 
 skip : Tac A
 skip .runTac _ _ = return _
-
-withTC : (TC ⊤ → TC ⊤) → Tac ⊤
-withTC f .runTac ret hole = f $ ret _ hole
 
 fork2 : Tac A → Tac B → Tac (Either A B)
 fork2 tac₁ tac₂ .runTac ret hole = do
@@ -57,8 +70,46 @@ fork2 tac₁ tac₂ .runTac ret hole = do
 
 liftTC : TC A → Tac A
 liftTC m .runTac ret goal = do
-  x ← m
+  x ← foldl (flip TC.extendContext) m (goal .goalCtx)
   ret x goal
+
+private
+  fmapTac : (A → B) → Tac A → Tac B
+  fmapTac f tac .runTac ret = tac .runTac $ ret ∘ f
+
+  bindTac : Tac A → (A → Tac B) → Tac B
+  bindTac tac f .runTac ret = tac .runTac $ λ x → f x .runTac ret
+
+  chooseTac : Tac A → Tac A → Tac A
+  chooseTac tac₁ tac₂ .runTac ret goal =
+    tac₁ .runTac ret goal <|> tac₂ .runTac ret goal
+
+instance
+  Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
+  Functor′Tac {{.fmap′}} = fmapTac
+
+  FunctorTac : Functor {ℓ} Tac
+  FunctorTac {{.fmap}} = fmapTac
+
+  Applicative′Tac : Applicative′ {ℓ} {ℓ′} Tac
+  Applicative′Tac {{._<*>′_}} = monadAp′ bindTac
+
+  ApplicativeTac : Applicative (Tac {ℓ})
+  ApplicativeTac {{.pure }} = pass
+  ApplicativeTac {{._<*>_}} = monadAp bindTac
+
+  Monad′Tac : Monad′ {ℓ} {ℓ′} Tac
+  Monad′Tac {{._>>=_}} = bindTac
+
+  MonadTac : Monad (Tac {ℓ})
+  MonadTac .Monad._>>=_ = bindTac
+
+  ZeroTac : FunctorZero (Tac {ℓ})
+  ZeroTac {{.empty}} = liftTC empty
+
+  AlternativeTac : Alternative (Tac {ℓ})
+  AlternativeTac {{._<|>_}} = chooseTac
+
 
 module _ where
   unify : Term → Term → Tac ⊤
@@ -121,52 +172,15 @@ module _ where
   debug : String → Nat → List ErrorPart → Tac ⊤
   debug s n msg = liftTC $ TC.debugPrint ("tac." <> s) n msg
 
-private
-  fmapTac : (A → B) → Tac A → Tac B
-  fmapTac f tac .runTac ret = tac .runTac $ ret ∘ f
-
-  bindTac : Tac A → (A → Tac B) → Tac B
-  bindTac tac f .runTac ret = tac .runTac $ λ x → f x .runTac ret
-
-  chooseTac : Tac A → Tac A → Tac A
-  chooseTac tac₁ tac₂ .runTac ret goal =
-    tac₁ .runTac ret goal <|> tac₂ .runTac ret goal
-
-instance
-  Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
-  Functor′Tac {{.fmap′}} = fmapTac
-
-  FunctorTac : Functor {ℓ} Tac
-  FunctorTac {{.fmap}} = fmapTac
-
-  Applicative′Tac : Applicative′ {ℓ} {ℓ′} Tac
-  Applicative′Tac {{._<*>′_}} = monadAp′ bindTac
-
-  ApplicativeTac : Applicative (Tac {ℓ})
-  ApplicativeTac {{.pure }} = pass
-  ApplicativeTac {{._<*>_}} = monadAp bindTac
-
-  Monad′Tac : Monad′ {ℓ} {ℓ′} Tac
-  Monad′Tac {{._>>=_}} = bindTac
-
-  MonadTac : Monad (Tac {ℓ})
-  MonadTac .Monad._>>=_ = bindTac
-
-  ZeroTac : FunctorZero (Tac {ℓ})
-  ZeroTac {{.empty}} = liftTC empty
-
-  AlternativeTac : Alternative (Tac {ℓ})
-  AlternativeTac {{._<|>_}} = chooseTac
-
-getGoal : Tac (Term × Type)
-getGoal = do
+getHoleWithType : Tac (Term × Type)
+getHoleWithType = do
   hole ← getHole
   holeType ← inferType hole
   return (hole , holeType)
 
 qed : Tac A
 qed = do
-  hole , holeType ← getGoal
+  hole , holeType ← getHoleWithType
   fail $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
 
 now : Tac A → Tac B
@@ -174,15 +188,6 @@ now tac = tac >> qed
 
 try : Tac A → Tac (Maybe A)
 try tac = (just <$> tac) <|> return nothing
-
-commit : Tac A → Tac A
-commit tac = tac <|> skip
-
-cut : Tac ⊤
-cut = commit $ pass _
-
-addCtx : Arg Type → Tac ⊤
-addCtx dom = withTC $ TC.extendContext dom
 
 repeat : Nat → Tac ⊤ → Tac ⊤
 repeat zero    tac = return _
@@ -201,7 +206,7 @@ forEach xs f = snd <$> (fork $ f ∘ indexVec (listToVec xs))
 
 alreadySolved : Tac A
 alreadySolved = do
-  hole , holeType ← getGoal
+  hole , holeType ← getHoleWithType
   reduce hole >>= λ where
     hole@(meta _ _) → fail $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
     _               → skip

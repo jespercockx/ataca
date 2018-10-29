@@ -8,7 +8,7 @@ open import Tac
 
 intro' : Tac ⊤
 intro' = unlessSolved $ do
-  hole , holeType ← getGoal
+  hole , holeType ← getHoleWithType
   debug "intro" 10 $ strErr "Trying intro on" ∷ termErr holeType ∷ []
   pi a b ← reduce holeType
     where t → fail $ strErr "Not a function type: " ∷ termErr t ∷ []
