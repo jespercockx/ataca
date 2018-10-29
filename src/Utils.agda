@@ -11,8 +11,8 @@ variable
 
 -- Some utility functions
 
-void : {{_ : Monad M}} → M A → M ⊤
-void m = m >> return _
+void : {{_ : Functor F}} → F A → F ⊤
+void m = const _ <$> m
 
 choice1 : {{_ : Alternative F}} → List (F A) → F A
 choice1 []       = empty
@@ -37,7 +37,7 @@ piView : Type → TC (Maybe (Arg Type × Abs Type))
 piView = λ where
     -- HACK: first try without reducing the type to avoid creating
     -- spurious constraints, then try again if that doesn't work.
-    (pi a b) → return $ just (a , b) --return $ just (a , b)
+    (pi a b) → return $ just (a , b)
     t → reduce t >>= λ where
       (pi a b) → return $ just (a , b)
       _        → return nothing
