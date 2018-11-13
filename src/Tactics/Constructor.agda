@@ -9,9 +9,10 @@ open import Tactics.Refine
 
 getConstructor : Type → Tac ((List (Arg Term) → Term) × List ArgInfo)
 getConstructor t = do
-  debug "constr" 30 $ strErr "Now reducing" ∷ termErr t ∷ []
   def d us ← reduce t
-    where _ → fail $ strErr "Not a data/record type: " ∷ termErr t ∷ []
+    where _ → do
+                debug "introConstructor" 9 $ strErr "Not a data/record type: " ∷ termErr t ∷ []
+                backtrack
   debug "constr" 30 $ strErr "Found a def" ∷ termErr (def d []) ∷ strErr "applied to arguments" ∷ map (termErr ∘ unArg) us
   cons , #pars ← getDefinition d >>= λ where
     (data-type #pars cons) → do
@@ -20,7 +21,9 @@ getConstructor t = do
     (record-type c fields) → do
       debug "constr" 20 $ strErr "It's a record type" ∷ []
       return $ singleton c , length us
-    _                      → fail $ strErr "Not a data/record type: " ∷ termErr t ∷ []
+    _                      → do
+      debug "introConstructor" 9 $ strErr "Not a data/record type: " ∷ termErr t ∷ []
+      backtrack
   let pars = take #pars us
       ipars = map makeImplicit pars
   choice1 $ for cons $ λ c → do
@@ -33,7 +36,7 @@ getConstructor t = do
 introConstructor' : Tac ⊤
 introConstructor' = do
   _ , holeType ← getHoleWithType
-  debug "constr" 20 $ strErr "Hole type: " ∷ termErr holeType ∷ []
+  debug "constr" 20 $ strErr "Trying introConstructor on " ∷ termErr holeType ∷ []
   c , is ← getConstructor holeType
   refineN' is c
 

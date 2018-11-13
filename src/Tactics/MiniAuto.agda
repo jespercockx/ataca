@@ -14,11 +14,8 @@ open import Tactics.Refine
 Hints = List Term
 
 mini-auto-with' : Hints → Tac ⊤
-mini-auto-with' hints = repeat 10 $ assumption' <|> do
-  goal , goalType ← getHoleWithType
-  liftTC (piView goalType) >>= λ where
-    (just _) → intro'
-    nothing  → choice1 (introConstructor' ∷ map refine' hints)
+mini-auto-with' hints = repeat 10 $ choice1 $
+  assumption' ∷ intro' ∷ introConstructor' ∷ map refine' hints
 
 mini-auto' : Tac ⊤
 mini-auto' = mini-auto-with' []

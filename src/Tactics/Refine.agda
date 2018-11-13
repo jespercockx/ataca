@@ -14,8 +14,10 @@ refineN' is hd = do
   where
     loop : List ArgInfo → (List (Arg Term) → Term) → List Term → Tac ⊤
     loop [] hd subgoals       = do
-      hole ← getHole
+      hole ← normalise =<< getHole
+      debug "refine" 15 $ strErr "Solving goal" ∷ termErr hole ∷ strErr "with solution" ∷ termErr (hd []) ∷ []
       unify hole (hd [])
+      debug "refine" 15 $ strErr "Instantiation successful, new subgoals" ∷ map termErr subgoals
       forEach subgoals setHole
     loop (i ∷ is) hd subgoals = do
       x ← newMeta!
@@ -33,7 +35,7 @@ refine' u = do
     (agda-sort s) → ⦇ return (const $ agda-sort s) , (inferType (agda-sort s)) ⦈
     (lit l)       → ⦇ return (const $ lit l) , (inferType (lit l)) ⦈
     (meta x us)   → ⦇ return (λ vs → meta x (us ++ vs)) , inferType (meta x us) ⦈
-    _ → fail $ strErr "Not supported by refine: " ∷ termErr u ∷ []
+    _ → error $ strErr "Not supported by refine: " ∷ termErr u ∷ []
   is ← liftTC $ piArgInfos t
   choice1 $ for (from 0 to (length is)) λ #args →
     refineN' (take #args is) hd

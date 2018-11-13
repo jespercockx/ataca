@@ -11,7 +11,9 @@ intro' = unlessSolved $ do
   hole , holeType ← getHoleWithType
   debug "intro" 10 $ strErr "Trying intro on" ∷ termErr holeType ∷ []
   pi a b ← reduce holeType
-    where t → fail $ strErr "Not a function type: " ∷ termErr t ∷ []
+    where t → do
+                debug "intro" 8 $ strErr "Not a function type: " ∷ termErr t ∷ []
+                backtrack
   body ← newMetaCtx (a ∷ []) $ unAbs b
   let v = getVisibility a
   unify hole (lam v (body <$ b))

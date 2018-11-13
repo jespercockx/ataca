@@ -1,18 +1,38 @@
+{-# OPTIONS --show-implicit -v tac:70 #-}
 
 open import Prelude
 open import Container.List
-open import Tactic.Reflection
 
 open import Tactics
 
+open import Tac
+open import Utils
+
+{-
 test₀ : Nat
-test₀ = exact 42
+test₀ = run doIt
+  where
+    doIt : Tac ⊤
+    doIt = choice1 $
+      (do
+        x ← Tac.newMeta!
+        hole ← getHole
+        Tac.unify hole (con (quote Nat.suc) (arg (arg-info visible relevant) x ∷ []))
+        backtrack)
+      ∷ (do
+        hole ← getHole
+        unify hole (con (quote Nat.zero) []))
+      ∷ []
+-}
+{-
+test₁ : Nat
+test₁ = exact 42
 
-test₁ : Nat → Bool → Nat
-test₁ x y = mini-auto
-
-test₂ : Nat → Bool → Bool
+test₂ : Nat → Bool → Nat
 test₂ x y = mini-auto
+
+test₃ : Nat → Bool → Bool
+test₃ x y = mini-auto
 
 test₄ : Nat → Bool → Nat
 test₄ = mini-auto
@@ -41,10 +61,38 @@ data DecrVec (n : Nat) : Nat → Set where
 
 test₁₁ : DecrVec 4 3
 test₁₁ = mini-auto
+-}
 
-test₁₂ : 5 ∈ from 2 to 7
-test₁₂ = mini-auto
+data NatList : Set where
+  []  : NatList
+  _∷_ : (x : Nat) (xs : NatList) → NatList
 
+
+data Is1 : Nat → Set where
+  instance is1 : Is1 1
+
+
+data Any1 : NatList → Set where
+  instance
+    zero : ∀ {x xs} (p : Is1 x) → Any1 (x ∷ xs)
+    suc  : ∀ {x xs} (i : Any1 xs) → Any1 (x ∷ xs)
+
+
+
+test₁₂ : Any1 (zero ∷ (suc zero) ∷ [])
+test₁₂ = run (introConstructor' >> introConstructor')
+  where
+    foo : Tac ⊤
+    foo = choice1 $
+      (do
+         refineN' (arg-info hidden relevant ∷ arg-info hidden relevant ∷ arg-info visible relevant ∷ []) (con (quote Any1.zero))
+         refineN' [] (con (quote Is1.is1)))
+      ∷ (refineN' (arg-info hidden relevant ∷ arg-info hidden relevant ∷ arg-info visible relevant ∷ []) (con (quote Any1.suc)))
+      ∷ []
+
+
+
+{-
 postulate
   Atype Btype : Set
   fun : Atype → Btype
@@ -60,3 +108,4 @@ proof : P=NP
 proof = run do
   try mini-auto'
   admit'
+-}
