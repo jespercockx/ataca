@@ -124,29 +124,29 @@ private
 
 instance
   Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
-  Functor′Tac {{.fmap′}} = fmapTac
+  Functor′Tac .fmap′ = fmapTac
 
   FunctorTac : Functor {ℓ} Tac
-  FunctorTac {{.fmap}} = fmapTac
+  FunctorTac .fmap = fmapTac
 
   Applicative′Tac : Applicative′ {ℓ} {ℓ′} Tac
-  Applicative′Tac {{._<*>′_}} = monadAp′ bindTac
+  Applicative′Tac ._<*>′_ = monadAp′ bindTac
 
   ApplicativeTac : Applicative (Tac {ℓ})
-  ApplicativeTac {{.pure }} = pass
-  ApplicativeTac {{._<*>_}} = monadAp bindTac
+  ApplicativeTac .pure  = pass
+  ApplicativeTac ._<*>_ = monadAp bindTac
 
   Monad′Tac : Monad′ {ℓ} {ℓ′} Tac
-  Monad′Tac {{._>>=_}} = bindTac
+  Monad′Tac ._>>=_ = bindTac
 
   MonadTac : Monad (Tac {ℓ})
   MonadTac .Monad._>>=_ = bindTac
 
   ZeroTac : FunctorZero (Tac {ℓ})
-  ZeroTac {{.empty}} = backtrack
+  ZeroTac .empty = backtrack
 
   AlternativeTac : Alternative (Tac {ℓ})
-  AlternativeTac {{._<|>_}} = chooseTac
+  AlternativeTac ._<|>_ = chooseTac
 
 
 module _ where
