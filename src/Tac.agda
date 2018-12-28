@@ -35,18 +35,28 @@ private
   open Goal
 
 {-# NO_POSITIVITY_CHECK #-}
-data Tac {ℓ} (A : Set ℓ) : Set ℓ where
+data Tac (A : Set ℓ) : Set ℓ where
   done      : A → Tac A
+  step      : TC (Tac A) → Tac A
+  goalTac   : (Goal → Tac A × Goal) → Tac A
+  failTac   : Tac A
   chooseTac : Tac A → Tac A → Tac A
-  step      : (Goal → TC (Maybe (List (Tac A × Goal)))) → Tac A
+  skipTac   : Tac A
+  forkTac   : Tac A → Tac A → Tac A
 
 private
-
   {-# TERMINATING #-}
   runTac' : Tac A → Goal
           → TC (Maybe (List (A × Goal)))
           → TC (Maybe (List (A × Goal)))
   runTac' (done x) goal cont = fmap ((x , goal) ∷_) <$> cont
+  runTac' (step mtac) goal cont = do
+      tac ← mtac
+      runTac' tac goal cont
+  runTac' (goalTac f) goal cont =
+      let tac' , goal' = f goal
+      in  runTac' tac' goal' cont
+  runTac' failTac goal cont = return nothing
   runTac' (chooseTac tac₁ tac₂) goal cont = do
       x ← TC.runSpeculative $ do
         just subgoals ← runTac' tac₁ goal cont
@@ -55,17 +65,9 @@ private
       case x of λ where
         nothing         → runTac' tac₂ goal cont
         (just subgoals) → return $ just subgoals
-  runTac' (step f) goal cont = do
-      just subgoals ← f goal
-        where nothing → return nothing
-      solveSubgoals subgoals cont
-    where
-      solveSubgoals : List (Tac A × Goal)
-                    → TC (Maybe (List (A × Goal)))
-                    → TC (Maybe (List (A × Goal)))
-      solveSubgoals [] cont = cont
-      solveSubgoals ((tac₁ , goal₁) ∷ goals) cont = do
-        runTac' tac₁ goal₁ (solveSubgoals goals cont)
+  runTac' skipTac goal cont = cont
+  runTac' (forkTac tac₁ tac₂) goal cont =
+    runTac' tac₁ goal (runTac' tac₂ goal cont)
 
 runTac : Tac A → Goal → TC (Maybe (List (A × Goal)))
 runTac tac goal = runTac' tac goal (return $ just [])
@@ -74,12 +76,11 @@ toMacro : Tac ⊤ → TC.Tactic
 toMacro tac hole = do
   `tac ← TC.quoteTC tac
   holeType ← TC.inferType hole
-  ctx ← TC.getContext
   TC.debugPrint "tac" 5 $
     strErr "Running tactic" ∷ termErr `tac     ∷
     strErr "on hole"        ∷ termErr hole     ∷
     strErr ":"              ∷ termErr holeType ∷ []
-  just _ ← runTac tac $ mkGoal hole ctx
+  just _ ← runTac tac $ mkGoal hole []
     where nothing → TC.typeError (strErr "Tactic" ∷ termErr `tac ∷ strErr "failed!" ∷ [])
   return _
 
@@ -88,60 +89,49 @@ macro
   run tac = toMacro tac
 
 backtrack : Tac A
-backtrack = step λ _ → return $ nothing
+backtrack = failTac
 
 getHole : Tac Term
-getHole = step λ goal → return $ just $ [ done (goal .theHole) , goal ]
+getHole = goalTac λ goal → done (goal .theHole) , goal
 
 setHole : Term → Tac ⊤
-setHole hole = step λ goal → return $ just $ [ done _ , mkGoal hole (goal .goalCtx) ]
+setHole hole = goalTac λ goal → done _ , mkGoal hole (goal .goalCtx)
+
+getCtx : Tac Telescope
+getCtx = goalTac λ goal → done (goal .goalCtx) , goal
 
 addCtx : Arg Type → Tac ⊤
-addCtx b = step λ goal → return $ just $ [ done _ , mkGoal (goal .theHole) (b ∷ goal .goalCtx) ]
+addCtx b = goalTac λ goal → done _ , mkGoal (goal .theHole) (b ∷ goal .goalCtx)
 
 pass : A → Tac A
-pass x = step λ goal → return $ just $ [ done x , goal ]
+pass x = done x
 
 skip : Tac A
-skip = step λ goal → return $ just []
+skip = skipTac
 
 duplicateGoal : Tac Bool
-duplicateGoal = step λ goal → return $ just $ (done false , goal) ∷ (done true , goal) ∷ []
-
-liftTC' : TC (Maybe (List (Tac A × Goal))) → TC A → Tac A
-liftTC' err m = step λ goal → TC.catchTC
-  (do
-     x ← foldl (flip TC.extendContext) m (goal .goalCtx)
-     return $ just $ [ done x , goal ])
-  err
-
--- Run TC action, backtracking on failure
-liftTC : TC A → Tac A
-liftTC = liftTC' (return nothing)
-
--- Run TC action, raising IMPOSSIBLE on failure
-liftTC! : TC A → Tac A
-liftTC! m = liftTC' fail m
-  where
-    fail : TC _
-    fail = do
-      `m ← TC.quoteTC m
-      TC.typeError $ strErr "Primitive TC action" ∷ termErr `m ∷ strErr "failed!" ∷ []
+duplicateGoal = forkTac (done false) (done true)
 
 private
   {-# TERMINATING #-}
   fmapTac : (A → B) → Tac A → Tac B
-  fmapTac f (done x  ) = done $ f x
-  fmapTac f (chooseTac tac₁ tac₂) = chooseTac (fmapTac f tac₁) (fmapTac f tac₂)
-  fmapTac f (step tac) = step λ goal →
-    fmap′ (fmap′ $ first $ fmapTac f) <$>′ tac goal
+  fmapTac g (done x  ) = done $ g x
+  fmapTac g (step mtac) = step $ fmapTac g <$>′ mtac
+  fmapTac g (goalTac f) = goalTac λ goal → first (fmapTac g) $ f goal
+  fmapTac g failTac = failTac
+  fmapTac g (chooseTac tac₁ tac₂) = chooseTac (fmapTac g tac₁) (fmapTac g tac₂)
+  fmapTac g skipTac = skipTac
+  fmapTac g (forkTac tac₁ tac₂) = forkTac (fmapTac g tac₁) (fmapTac g tac₂)
 
   {-# TERMINATING #-}
   bindTac : Tac A → (A → Tac B) → Tac B
-  bindTac (done x) f = f x
-  bindTac (chooseTac tac₁ tac₂) f = chooseTac (bindTac tac₁ f) (bindTac tac₂ f)
-  bindTac (step tac) f = step λ goal →
-    fmap′ (fmap′ $ first $ flip bindTac f) <$>′ tac goal
+  bindTac (done x) g = g x
+  bindTac (step mtac) g = step $ flip bindTac g <$>′ mtac
+  bindTac (goalTac f) g = goalTac λ goal → first (flip bindTac g) $ f goal
+  bindTac failTac g = failTac
+  bindTac (chooseTac tac₁ tac₂) g = chooseTac (bindTac tac₁ g) (bindTac tac₂ g)
+  bindTac skipTac g = skipTac
+  bindTac (forkTac tac₁ tac₂) g = forkTac (bindTac tac₁ g) (bindTac tac₂ g)
 
 instance
   Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
@@ -168,6 +158,27 @@ instance
 
   AlternativeTac : Alternative (Tac {ℓ})
   AlternativeTac ._<|>_ = chooseTac
+
+
+liftTC' : TC (Tac A) → TC A → Tac A
+liftTC' err m = do
+  ctx ← getCtx
+  step $ TC.catchTC
+    (done <$> foldl (flip TC.extendContext) m ctx)
+    err
+
+-- Run TC action, backtracking on failure
+liftTC : TC A → Tac A
+liftTC = liftTC' $ return failTac
+
+-- Run TC action, raising IMPOSSIBLE on failure
+liftTC! : TC A → Tac A
+liftTC! m = liftTC' fail m
+  where
+    fail : TC _
+    fail = do
+      `m ← TC.quoteTC m
+      TC.typeError $ strErr "Primitive TC action" ∷ termErr `m ∷ strErr "failed!" ∷ []
 
 
 module _ where
