@@ -4,15 +4,27 @@ open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>�
 open import Utils
 open import Container.List
 open import Container.Traversable
-open import Tactic.Reflection as TC hiding
-  ( unify; typeError; inferType; checkType
-  ; normalise; reduce
-  ; getContext; extendContext; inContext
-  ; freshName; declareDef; declarePostulate; defineFun
-  ; getType; getDefinition
-  ; blockOnMeta; isMacro
-  ; withNormalisation; debugPrint
-  ; newMeta; newMeta! ) public
+
+import Tactic.Reflection
+module TC = Tactic.Reflection
+open TC using
+  ( Name ; Term ; Type ; Arg ; ArgInfo ; unArg
+  ; Abs ; unAbs
+  ; Visibility ; getVisibility
+  ; Relevance ; getRelevance
+  ; Telescope
+  ; Pattern ; Clause ; Definition
+  ; TC ; ErrorPart
+  ) public
+open Term public
+open Arg public
+open ArgInfo public
+open Visibility public
+open Relevance public
+open Pattern public
+open Clause public
+open Definition public
+open ErrorPart public
 
 private
   record Goal : Set where
@@ -36,7 +48,7 @@ private
           → TC (Maybe (List (A × Goal)))
   runTac' (done x) goal cont = fmap ((x , goal) ∷_) <$> cont
   runTac' (chooseTac tac₁ tac₂) goal cont = do
-      x ← runSpeculative $ do
+      x ← TC.runSpeculative $ do
         just subgoals ← runTac' tac₁ goal cont
           where nothing → return $ nothing , false
         return $ just subgoals , true
@@ -44,12 +56,6 @@ private
         nothing         → runTac' tac₂ goal cont
         (just subgoals) → return $ just subgoals
   runTac' (step f) goal cont = do
-      --`f ← quoteTC f
-      --`goalType ← TC.inferType $ goal .theHole
-      --TC.debugPrint "tac" 30 $
-      --  strErr "Running tactic step" ∷ termErr `f ∷
-      --  strErr "on goal"             ∷ termErr (goal .theHole) ∷
-      --  strErr ":"                   ∷ termErr `goalType ∷ []
       just subgoals ← f goal
         where nothing → return nothing
       solveSubgoals subgoals cont
@@ -64,9 +70,9 @@ private
 runTac : Tac A → Goal → TC (Maybe (List (A × Goal)))
 runTac tac goal = runTac' tac goal (return $ just [])
 
-toMacro : Tac ⊤ → Tactic
+toMacro : Tac ⊤ → TC.Tactic
 toMacro tac hole = do
-  `tac ← quoteTC tac
+  `tac ← TC.quoteTC tac
   holeType ← TC.inferType hole
   ctx ← TC.getContext
   TC.debugPrint "tac" 5 $
@@ -78,7 +84,7 @@ toMacro tac hole = do
   return _
 
 macro
-  run : Tac ⊤ → Tactic
+  run : Tac ⊤ → TC.Tactic
   run tac = toMacro tac
 
 backtrack : Tac A
@@ -103,7 +109,7 @@ duplicateGoal : Tac Bool
 duplicateGoal = step λ goal → return $ just $ (done false , goal) ∷ (done true , goal) ∷ []
 
 liftTC' : TC (Maybe (List (Tac A × Goal))) → TC A → Tac A
-liftTC' err m = step λ goal → catchTC
+liftTC' err m = step λ goal → TC.catchTC
   (do
      x ← foldl (flip TC.extendContext) m (goal .goalCtx)
      return $ just $ [ done x , goal ])
@@ -193,10 +199,10 @@ module _ where
   reduce u = liftTC! $ TC.reduce u
 
   quoteTac : A → Tac Term
-  quoteTac x = liftTC! $ quoteTC x
+  quoteTac x = liftTC! $ TC.quoteTC x
 
   unquoteTac : Term → Tac A
-  unquoteTac u = liftTC! $ unquoteTC u
+  unquoteTac u = liftTC! $ TC.unquoteTC u
 
   getContext : Tac Telescope
   getContext = liftTC! TC.getContext

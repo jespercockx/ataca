@@ -21,8 +21,8 @@ intro' = unlessSolved $ do
   setHole body
 
 macro
-  intro : Tactic
+  intro : TC.Tactic
   intro = toMacro intro'
 
-  intros : Tactic
+  intros : TC.Tactic
   intros = toMacro $ repeat 10 intro'

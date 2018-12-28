@@ -20,5 +20,5 @@ assumption' = unlessSolved $ do
     choice $ map tryVar vars
 
 macro
-  assumption : Tactic
+  assumption : TC.Tactic
   assumption = toMacro assumption'

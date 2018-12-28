@@ -21,8 +21,8 @@ mini-auto' : Tac ⊤
 mini-auto' = mini-auto-with' []
 
 macro
-  mini-auto-with : Hints → Tactic
+  mini-auto-with : Hints → TC.Tactic
   mini-auto-with hints = toMacro $ mini-auto-with' hints
 
-  mini-auto : Tactic
+  mini-auto : TC.Tactic
   mini-auto = toMacro mini-auto'

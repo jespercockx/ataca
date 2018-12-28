@@ -15,5 +15,5 @@ admit' = do
   exact' (def x [])
 
 macro
-  admit : Tactic
+  admit : TC.Tactic
   admit = toMacro admit'

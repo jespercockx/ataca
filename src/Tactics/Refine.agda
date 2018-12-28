@@ -41,5 +41,5 @@ refine' u = do
     refineN' (take #args is) hd
 
 macro
-  refine : Term → Tactic
+  refine : Term → TC.Tactic
   refine u = toMacro $ refine' u

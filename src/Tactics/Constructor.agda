@@ -41,8 +41,8 @@ introConstructor' = do
   refineN' is c
 
 macro
-  introConstructor : Tactic
+  introConstructor : TC.Tactic
   introConstructor = toMacro introConstructor'
 
-  introConstructors : Tactic
+  introConstructors : TC.Tactic
   introConstructors = toMacro $ repeat 10 introConstructor'

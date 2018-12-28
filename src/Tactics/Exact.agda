@@ -14,5 +14,5 @@ exact' solution = unlessSolved $ do
   skip
 
 macro
-  exact : A → Tactic
+  exact : A → TC.Tactic
   exact u = toMacro $ (quoteTac u) >>= exact'
