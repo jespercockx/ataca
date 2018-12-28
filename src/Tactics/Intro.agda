@@ -26,3 +26,17 @@ macro
 
   intros : TC.Tactic
   intros = toMacro $ repeat 10 intro'
+
+introAbsurd' : Tac ⊤
+introAbsurd' = unlessSolved $ do
+  hole , holeType ← getHoleWithType
+  debug "intro" 10 $ strErr "Trying introAbsurd on" ∷ termErr holeType ∷ []
+  pi a b ← reduce holeType
+    where t → do
+                debug "intro" 8 $ strErr "Not a function type: " ∷ termErr t ∷ []
+                backtrack
+  unify hole (pat-lam [ absurd-clause [ absurd <$ a ] ] [])
+  qed
+
+macro
+  introAbsurd = toMacro introAbsurd'

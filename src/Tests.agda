@@ -23,7 +23,6 @@ test₀ = run doIt
         unify hole (con (quote Nat.zero) []))
       ∷ []
 
-
 test₁ : Nat
 test₁ = exact 42
 
@@ -91,3 +90,6 @@ proof : P=NP
 proof = run do
   try mini-auto'
   admit'
+
+test₁₄ : {A : Set} → ⊥ → A
+test₁₄ = mini-auto
