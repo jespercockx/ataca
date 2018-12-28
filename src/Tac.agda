@@ -250,13 +250,13 @@ getHoleWithType = do
   holeType ← inferType hole
   return (hole , holeType)
 
-qed : Tac A
-qed = do
+noMoreGoals : Tac A
+noMoreGoals = do
   hole , holeType ← getHoleWithType
   error $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
 
 now : Tac A → Tac B
-now tac = tac >> qed
+now tac = tac >> noMoreGoals
 
 try : Tac A → Tac (Maybe A)
 try tac = (just <$> tac) <|> return nothing
@@ -282,14 +282,14 @@ fork {n = suc n} tac = do
 forEach : List A → (A → Tac B) → Tac B
 forEach xs f = snd <$> (fork $ f ∘ indexVec (listToVec xs))
 
-alreadySolved : Tac A
-alreadySolved = do
+qed : Tac A
+qed = do
   hole , holeType ← getHoleWithType
   reduce hole >>= λ where
     hole@(meta _ _) → do
-      debug "alreadySolved" 25 $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
+      debug "qed" 25 $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
       backtrack
     _               → skip
 
 unlessSolved : Tac A → Tac A
-unlessSolved tac = alreadySolved <|> tac
+unlessSolved tac = qed <|> tac
