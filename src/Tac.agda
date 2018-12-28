@@ -23,12 +23,46 @@ private
   open Goal
 
 {-# NO_POSITIVITY_CHECK #-}
-record Tac {ℓ} (A : Set ℓ) : Set ℓ where
-  inductive
-  field
-    runTac : Goal → TC (List (A × Goal) × Tac A)
-open Tac
+data Tac {ℓ} (A : Set ℓ) : Set ℓ where
+  done      : A → Tac A
+  chooseTac : Tac A → Tac A → Tac A
+  step      : (Goal → TC (Maybe (List (Tac A × Goal)))) → Tac A
 
+private
+
+  {-# TERMINATING #-}
+  runTac' : Tac A → Goal
+          → TC (Maybe (List (A × Goal)))
+          → TC (Maybe (List (A × Goal)))
+  runTac' (done x) goal cont = fmap ((x , goal) ∷_) <$> cont
+  runTac' (chooseTac tac₁ tac₂) goal cont = do
+      x ← runSpeculative $ do
+        just subgoals ← runTac' tac₁ goal cont
+          where nothing → return $ nothing , false
+        return $ just subgoals , true
+      case x of λ where
+        nothing         → runTac' tac₂ goal cont
+        (just subgoals) → return $ just subgoals
+  runTac' (step f) goal cont = do
+      --`f ← quoteTC f
+      --`goalType ← TC.inferType $ goal .theHole
+      --TC.debugPrint "tac" 30 $
+      --  strErr "Running tactic step" ∷ termErr `f ∷
+      --  strErr "on goal"             ∷ termErr (goal .theHole) ∷
+      --  strErr ":"                   ∷ termErr `goalType ∷ []
+      just subgoals ← f goal
+        where nothing → return nothing
+      solveSubgoals subgoals cont
+    where
+      solveSubgoals : List (Tac A × Goal)
+                    → TC (Maybe (List (A × Goal)))
+                    → TC (Maybe (List (A × Goal)))
+      solveSubgoals [] cont = cont
+      solveSubgoals ((tac₁ , goal₁) ∷ goals) cont = do
+        runTac' tac₁ goal₁ (solveSubgoals goals cont)
+
+runTac : Tac A → Goal → TC (Maybe (List (A × Goal)))
+runTac tac goal = runTac' tac goal (return $ just [])
 
 toMacro : Tac ⊤ → Tactic
 toMacro tac hole = do
@@ -39,88 +73,69 @@ toMacro tac hole = do
     strErr "Running tactic" ∷ termErr `tac     ∷
     strErr "on hole"        ∷ termErr hole     ∷
     strErr ":"              ∷ termErr holeType ∷ []
-  void $ tac .runTac λ where
-    .theHole → hole
-    .goalCtx → ctx
+  just _ ← runTac tac $ mkGoal hole ctx
+    where nothing → TC.typeError (strErr "Tactic" ∷ termErr `tac ∷ strErr "failed!" ∷ [])
+  return _
 
 macro
   run : Tac ⊤ → Tactic
   run tac = toMacro tac
 
 backtrack : Tac A
-backtrack .runTac goal = do
-  TC.debugPrint "tac" 10 $ strErr "Now backtracking..." ∷ []
-  TC.typeError []
+backtrack = step λ _ → return $ nothing
 
 getHole : Tac Term
-getHole .runTac goal = return $ [ (goal .theHole) , goal ] , backtrack
+getHole = step λ goal → return $ just $ [ done (goal .theHole) , goal ]
 
 setHole : Term → Tac ⊤
-setHole hole .runTac goal = return $ [ _ , mkGoal hole (goal .goalCtx) ] , backtrack
+setHole hole = step λ goal → return $ just $ [ done _ , mkGoal hole (goal .goalCtx) ]
 
 addCtx : Arg Type → Tac ⊤
-addCtx b .runTac goal = return $ [ _ , mkGoal (goal .theHole) (b ∷ goal .goalCtx) ] , backtrack
+addCtx b = step λ goal → return $ just $ [ done _ , mkGoal (goal .theHole) (b ∷ goal .goalCtx) ]
 
 pass : A → Tac A
-pass x .runTac goal = return $ [ x , goal ] , backtrack
+pass x = step λ goal → return $ just $ [ done x , goal ]
 
 skip : Tac A
-skip .runTac _ = return $ [] , backtrack
+skip = step λ goal → return $ just []
 
 duplicateGoal : Tac Bool
-duplicateGoal .runTac goal = return $ (false , goal) ∷ (true , goal) ∷ [] , backtrack
+duplicateGoal = step λ goal → return $ just $ (done false , goal) ∷ (done true , goal) ∷ []
 
+liftTC' : TC (Maybe (List (Tac A × Goal))) → TC A → Tac A
+liftTC' err m = step λ goal → catchTC
+  (do
+     x ← foldl (flip TC.extendContext) m (goal .goalCtx)
+     return $ just $ [ done x , goal ])
+  err
+
+-- Run TC action, backtracking on failure
 liftTC : TC A → Tac A
-liftTC m .runTac goal = do
-  x ← foldl (flip TC.extendContext) m (goal .goalCtx)
-  return $ [ x , goal ] , backtrack
-
+liftTC = liftTC' (return nothing)
 
 -- Run TC action, raising IMPOSSIBLE on failure
 liftTC! : TC A → Tac A
-liftTC! m .runTac goal =
-  catchTC (liftTC m .runTac goal) $ do
+liftTC! m = liftTC' fail m
+  where
+    fail : TC _
+    fail = do
       `m ← TC.quoteTC m
-      TC.debugPrint "tac" 1 $
-        strErr "Primitive TC action" ∷ termErr `m ∷
-        strErr "failed!" ∷ []
-      IMPOSSIBLE
-
-  where postulate IMPOSSIBLE : _
+      TC.typeError $ strErr "Primitive TC action" ∷ termErr `m ∷ strErr "failed!" ∷ []
 
 private
   {-# TERMINATING #-}
   fmapTac : (A → B) → Tac A → Tac B
-  fmapTac f tac .runTac goal = do
-    subgoals , fallback ← tac .runTac goal
-    return $ map (first f) subgoals , fmapTac f fallback
-
-  {-# TERMINATING #-}
-  chooseTac : Tac A → Tac A → Tac A
-  chooseTac tac₁ tac₂ .runTac goal =
-    catchTC
-      (do
-        subgoals , fallback ← tac₁ .runTac goal
-        return $ subgoals , (chooseTac fallback tac₂))
-      (tac₂ .runTac goal)
+  fmapTac f (done x  ) = done $ f x
+  fmapTac f (chooseTac tac₁ tac₂) = chooseTac (fmapTac f tac₁) (fmapTac f tac₂)
+  fmapTac f (step tac) = step λ goal →
+    fmap′ (fmap′ $ first $ fmapTac f) <$>′ tac goal
 
   {-# TERMINATING #-}
   bindTac : Tac A → (A → Tac B) → Tac B
-  bindTac {A = A} {B = B} tac f .runTac goal = do
-    subgoals , fallback ← tac .runTac goal
-    catchTC
-      (solveSubgoals subgoals (fixGoal goal (bindTac fallback f)))
-      (bindTac fallback f .runTac goal)
-    where
-      fixGoal : Goal → Tac C → Tac C
-      fixGoal goal tac .runTac _ = tac .runTac goal
-
-      solveSubgoals : List (A × Goal) → Tac B → TC (List (B × Goal) × Tac B)
-      solveSubgoals [] fallback = return $ [] , fallback
-      solveSubgoals ((x , goal) ∷ goals) fallback = do
-        subgoals₁ , fallback₁ ← f x .runTac goal
-        subgoals₂ , fallback₂ ← solveSubgoals goals fallback
-        return $ subgoals₁ ++ subgoals₂ , chooseTac fallback₁ fallback₂
+  bindTac (done x) f = f x
+  bindTac (chooseTac tac₁ tac₂) f = chooseTac (bindTac tac₁ f) (bindTac tac₂ f)
+  bindTac (step tac) f = step λ goal →
+    fmap′ (fmap′ $ first $ flip bindTac f) <$>′ tac goal
 
 instance
   Functor′Tac : Functor′ {ℓ} {ℓ′} Tac
@@ -211,7 +226,6 @@ module _ where
 
   debug : String → Nat → List ErrorPart → Tac ⊤
   debug s n msg = liftTC! $ TC.debugPrint ("tac." <> s) n msg
-
 
 getHoleWithType : Tac (Term × Type)
 getHoleWithType = do
