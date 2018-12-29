@@ -4,7 +4,9 @@ module Tactics.Admit where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
-open import Tac
+open import Reflection
+open import Core
+open import Tactics.BasicTactics
 open import Tactics.Exact
 
 admit' : Tac A
@@ -16,4 +18,4 @@ admit' = do
 
 macro
   admit : TC.Tactic
-  admit = toMacro admit'
+  admit = runTac admit'

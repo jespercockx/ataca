@@ -1,12 +1,12 @@
---{-# OPTIONS -v tac:49 #-}
 
 open import Prelude
 open import Container.List
 
 open import Tactics
 
-open import Tac
 open import Utils
+open import Reflection
+open import Core
 
 test₀ : Nat
 test₀ = run doIt
@@ -16,7 +16,7 @@ test₀ = run doIt
       (do
         x    ← newMeta!
         hole ← getHole
-        Tac.unify hole (con (quote Nat.suc) (arg (arg-info visible relevant) x ∷ []))
+        unify hole (con (quote Nat.suc) (arg (arg-info visible relevant) x ∷ []))
         backtrack)
       ∷ (do
         hole ← getHole

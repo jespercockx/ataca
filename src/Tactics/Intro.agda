@@ -4,7 +4,9 @@ module Tactics.Intro where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
-open import Tac
+open import Reflection
+open import Core
+open import Tactics.BasicTactics
 
 intro' : Tac ⊤
 intro' = unlessSolved $ do
@@ -22,10 +24,10 @@ intro' = unlessSolved $ do
 
 macro
   intro : TC.Tactic
-  intro = toMacro intro'
+  intro = runTac intro'
 
   intros : TC.Tactic
-  intros = toMacro $ repeat 10 intro'
+  intros = runTac $ repeat 10 intro'
 
 introAbsurd' : Tac ⊤
 introAbsurd' = unlessSolved $ do
@@ -39,4 +41,4 @@ introAbsurd' = unlessSolved $ do
   qed
 
 macro
-  introAbsurd = toMacro introAbsurd'
+  introAbsurd = runTac introAbsurd'

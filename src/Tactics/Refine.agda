@@ -4,7 +4,9 @@ module Tactics.Refine where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
-open import Tac
+open import Reflection
+open import Core
+open import Tactics.BasicTactics
 
 refineN' : List ArgInfo → (List (Arg Term) → Term) → Tac ⊤
 refineN' is hd = do
@@ -42,4 +44,4 @@ refine' u = do
 
 macro
   refine : Term → TC.Tactic
-  refine u = toMacro $ refine' u
+  refine u = runTac $ refine' u

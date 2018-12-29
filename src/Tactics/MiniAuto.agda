@@ -4,8 +4,9 @@ module Tactics.MiniAuto where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
-
-open import Tac
+open import Reflection
+open import Core
+open import Tactics.BasicTactics
 open import Tactics.Assumption
 open import Tactics.Intro
 open import Tactics.Constructor
@@ -22,7 +23,7 @@ mini-auto' = mini-auto-with' []
 
 macro
   mini-auto-with : Hints → TC.Tactic
-  mini-auto-with hints = toMacro $ mini-auto-with' hints
+  mini-auto-with hints = runTac $ mini-auto-with' hints
 
   mini-auto : TC.Tactic
-  mini-auto = toMacro mini-auto'
+  mini-auto = runTac mini-auto'

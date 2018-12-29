@@ -4,7 +4,9 @@ module Tactics.Constructor where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Utils
-open import Tac
+open import Reflection
+open import Core
+open import Tactics.BasicTactics
 open import Tactics.Refine
 
 getConstructor : Type → Tac ((List (Arg Term) → Term) × List ArgInfo)
@@ -42,7 +44,7 @@ introConstructor' = do
 
 macro
   introConstructor : TC.Tactic
-  introConstructor = toMacro introConstructor'
+  introConstructor = runTac introConstructor'
 
   introConstructors : TC.Tactic
-  introConstructors = toMacro $ repeat 10 introConstructor'
+  introConstructors = runTac $ repeat 10 introConstructor'

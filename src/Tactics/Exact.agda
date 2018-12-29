@@ -3,8 +3,10 @@
 module Tactics.Exact where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
+open import Reflection
 open import Utils
-open import Tac
+open import Core
+open import Tactics.BasicTactics
 
 exact' : Term → Tac A
 exact' solution = unlessSolved $ do
@@ -15,4 +17,4 @@ exact' solution = unlessSolved $ do
 
 macro
   exact : A → TC.Tactic
-  exact u = toMacro $ (quoteTac u) >>= exact'
+  exact u = runTac $ (quoteTac u) >>= exact'
