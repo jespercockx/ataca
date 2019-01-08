@@ -27,7 +27,7 @@ macro
   intro = runTac intro'
 
   intros : TC.Tactic
-  intros = runTac $ repeat 10 intro'
+  intros = runTac $ repeat 10 (intro' <|> return _)
 
 introAbsurd' : Tac ⊤
 introAbsurd' = unlessSolved $ do

@@ -51,4 +51,4 @@ macro
   introConstructor = runTac introConstructor'
 
   introConstructors : TC.Tactic
-  introConstructors = runTac $ repeat 10 introConstructor'
+  introConstructors = runTac $ repeat 10 (introConstructor' <|> return _)
