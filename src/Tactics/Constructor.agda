@@ -9,23 +9,27 @@ open import Core
 open import Tactics.BasicTactics
 open import Tactics.Refine
 
-getConstructor : Type → Tac ((List (Arg Term) → Term) × List ArgInfo)
-getConstructor t = do
+isDataOrRecord : Type → Tac (List (Arg Term) × List Name × Nat)
+isDataOrRecord t = do
   def d us ← reduce t
     where _ → do
                 debug "introConstructor" 9 $ strErr "Not a data/record type: " ∷ termErr t ∷ []
                 backtrack
   debug "constr" 30 $ strErr "Found a def" ∷ termErr (def d []) ∷ strErr "applied to arguments" ∷ map (termErr ∘ unArg) us
-  cons , #pars ← getDefinition d >>= λ where
+  getDefinition d >>= λ where
     (data-type #pars cons) → do
       debug "constr" 20 $ strErr "It's a datatype applied to" ∷ strErr (show #pars) ∷ strErr "parameters" ∷ []
-      return $ cons ,′ #pars
+      return $ us , cons ,′ #pars
     (record-type c fields) → do
       debug "constr" 20 $ strErr "It's a record type" ∷ []
-      return $ singleton c , length us
+      return $ us , singleton c , length us
     _                      → do
       debug "introConstructor" 9 $ strErr "Not a data/record type: " ∷ termErr t ∷ []
       backtrack
+
+getConstructor : Type → Tac ((List (Arg Term) → Term) × List ArgInfo)
+getConstructor t = do
+  us , cons , #pars ← isDataOrRecord t
   let pars = take #pars us
       ipars = map makeImplicit pars
   choice1 $ for cons $ λ c → do
