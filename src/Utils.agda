@@ -43,7 +43,13 @@ piView = λ where
       _        → return nothing
 
 {-# TERMINATING #-}
+telePi : Type → TC (Telescope × Type)
+telePi t = piView t >>= λ where
+  (just (a , (abs _ b))) → first (a ∷_) <$> TC.extendContext a (telePi b)
+  nothing → return ([] , t)
+
+teleArgInfos : Telescope → List ArgInfo
+teleArgInfos = map getArgInfo
+
 piArgInfos : Type → TC (List ArgInfo)
-piArgInfos t = piView t >>= λ where
-  (just (a , (abs _ b))) → (getArgInfo a ∷_) <$> TC.extendContext a (piArgInfos b)
-  nothing → return []
+piArgInfos t = teleArgInfos ∘ fst <$> telePi t
