@@ -17,7 +17,7 @@ assumption' : Tac A
 assumption' = unlessSolved $ do
     ctx ← getContext
     debug "assumption" 20 $ strErr "Current context:" ∷ map (termErr ∘ unArg) ctx
-    let vars = (if null ctx then [] else from 0 to (length ctx - 1))
+    let vars = from 0 for (length ctx)
     choice $ map tryVar vars
 
 macro
