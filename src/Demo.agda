@@ -18,7 +18,7 @@ test₃ : Nat → Bool → Bool
 test₃ x y = {! assumption !}
 
 test₄ : Nat → Bool → Nat
-test₄ = {! intro !}
+test₄ = {! intros !}
 
 test₅ : Bool
 test₅ = {! introConstructor !}
@@ -33,7 +33,7 @@ test₈ : Vec Nat 0
 test₈ = {! introConstructor!}
 
 test₉ : Vec Bool 3
-test₉ = {! mini-auto !}
+test₉ = {! introConstructors !}
 
 test₁₀ : {A : Set} → A → Vec A 5
 test₁₀ = {! mini-auto !}
@@ -53,8 +53,17 @@ postulate
   fun : X → Y
 
 test₁₃ : X → Y
-test₁₃ = mini-auto-with hints
-  where hints = def (quote fun) [] ∷ []
+test₁₃ = {! mini-auto-with hints !}
+  where
+    hints : Hints
+    hints = def (quote fun) [] ∷ []
+
+test₁₄ : {A : Set} → ⊥ → A
+test₁₄ = {! mini-auto !}
+
+test₁₅ : (x : Nat) → Either (x ≡ 0) (Σ Nat λ y → x ≡ suc y)
+test₁₅ x = {! destruct x !}
+
 
 postulate
   P=NP : Set
@@ -63,9 +72,3 @@ proof : P=NP
 proof = run do
   try mini-auto'
   admit'
-
-test₁₄ : {A : Set} → ⊥ → A
-test₁₄ = {! mini-auto !}
-
-test₁₅ : (x : Nat) → Either (x ≡ 0) (Σ Nat λ y → x ≡ suc y)
-test₁₅ x = {! destruct x !}
