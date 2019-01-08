@@ -6,4 +6,5 @@ open import Tactics.Assumption   public
 open import Tactics.Intro        public
 open import Tactics.Constructor  public
 open import Tactics.Refine       public
+open import Tactics.Destruct     public
 open import Tactics.MiniAuto     public
