@@ -2,10 +2,11 @@
 open import Prelude
 open import Container.List
 
-open import Tactics
+open import Ataca.Utils
+open import Ataca.Core
+open import Ataca.Tactics
 
-open import Utils
-open import Core
+module Ataca.Demo where
 
 test₁ : Nat
 test₁ = {! exact 42 !}

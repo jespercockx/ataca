@@ -1,14 +1,15 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
-module Tactics.Destruct where
+module Ataca.Tactics.Destruct where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Container.Traversable
-open import Utils
-open import Core
-open import Tactics.BasicTactics
-open import Tactics.Exact
-open import Tactics.Constructor
+
+open import Ataca.Utils
+open import Ataca.Core
+open import Ataca.Tactics.BasicTactics
+open import Ataca.Tactics.Exact
+open import Ataca.Tactics.Constructor
 
 data Is {A : Set ℓ} : A → Set ℓ where
   ⌊_⌋ : (x : A) → Is x

@@ -1,12 +1,13 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
-module Tactics.Constructor where
+module Ataca.Tactics.Constructor where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Utils
-open import Core
-open import Tactics.BasicTactics
-open import Tactics.Refine
+
+open import Ataca.Utils
+open import Ataca.Core
+open import Ataca.Tactics.BasicTactics
+open import Ataca.Tactics.Refine
 
 isDataOrRecord : Type → Tac (List (Arg Term) × List Name × Nat)
 isDataOrRecord t = do

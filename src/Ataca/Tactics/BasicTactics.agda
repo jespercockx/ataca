@@ -1,8 +1,8 @@
-module Tactics.BasicTactics where
+module Ataca.Tactics.BasicTactics where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Utils
-open import Core
+open import Ataca.Utils
+open import Ataca.Core
 
 module _ where
   unify : Term → Term → Tac ⊤

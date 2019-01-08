@@ -1,6 +1,8 @@
 open import Prelude
 open import Tactic.Reflection
 
+module Ataca.Utils where
+
 -- Generalized names
 
 variable

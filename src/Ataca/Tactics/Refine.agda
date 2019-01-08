@@ -1,11 +1,12 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
-module Tactics.Refine where
+module Ataca.Tactics.Refine where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Utils
-open import Core
-open import Tactics.BasicTactics
+
+open import Ataca.Utils
+open import Ataca.Core
+open import Ataca.Tactics.BasicTactics
 
 refineN' : List ArgInfo → (List (Arg Term) → Term) → Tac ⊤
 refineN' is hd = do

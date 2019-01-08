@@ -1,12 +1,13 @@
 {-# OPTIONS --without-K --postfix-projections #-}
 
-module Tactics.Admit where
+module Ataca.Tactics.Admit where
 
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Utils
-open import Core
-open import Tactics.BasicTactics
-open import Tactics.Exact
+
+open import Ataca.Utils
+open import Ataca.Core
+open import Ataca.Tactics.BasicTactics
+open import Ataca.Tactics.Exact
 
 admit' : Tac A
 admit' = do
