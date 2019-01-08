@@ -5,7 +5,6 @@ module Tactics.Destruct where
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Container.Traversable
 open import Utils
-open import Reflection
 open import Core
 open import Tactics.BasicTactics
 open import Tactics.Exact

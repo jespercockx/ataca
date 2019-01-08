@@ -5,7 +5,6 @@ open import Container.List
 open import Tactics
 
 open import Utils
-open import Reflection
 open import Core
 
 test₁ : Nat

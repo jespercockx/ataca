@@ -1,10 +1,31 @@
 open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Reflection
 open import Utils
 open import Container.List
 open import Container.Traversable
+import Tactic.Reflection
 
 module Core where
+
+module TC = Tactic.Reflection
+open TC using
+  ( Name ; Term ; Type ; Arg ; ArgInfo ; unArg ; getArgInfo
+  ; Abs ; unAbs
+  ; Visibility ; getVisibility
+  ; Relevance ; getRelevance
+  ; Telescope
+  ; Pattern ; Clause ; Definition
+  ; TC ; ErrorPart
+  ) public
+open Term       public
+open Arg        public
+open Abs        public
+open ArgInfo    public
+open Visibility public
+open Relevance  public
+open Pattern    public
+open Clause     public
+open Definition public
+open ErrorPart  public
 
 record TacCore : Setω where
   field

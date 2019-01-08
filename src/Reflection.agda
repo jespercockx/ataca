@@ -1,4 +1,4 @@
-module Reflection where
+module BuiltinReflection where
 
 import Tactic.Reflection
 module TC = Tactic.Reflection
