@@ -36,9 +36,15 @@ record TacCore : Setω where
     runTac : Tac ⊤ → TC.Tactic
 
     -- instances
-    {{MonadTac}}       : Monad (Tac {ℓ})
-    {{MonadTac′}}      : Monad′ {ℓ} {ℓ′} Tac
-    {{AlternativeTac}} : Alternative (Tac {ℓ})
+    instance
+      {{FunctorTac}}      : Functor (Tac {ℓ})
+      {{FunctorTac′}}     : Functor′ {ℓ} {ℓ′} Tac
+      {{ApplicativeTac}}  : Applicative (Tac {ℓ})
+      {{ApplicativeTac′}} : Applicative′ {ℓ} {ℓ′} Tac
+      {{MonadTac}}        : Monad (Tac {ℓ})
+      {{MonadTac′}}       : Monad′ {ℓ} {ℓ′} Tac
+      {{FunctorZeroTac}}  : FunctorZero (Tac {ℓ})
+      {{AlternativeTac}}  : Alternative (Tac {ℓ})
 
     -- goal manipulation
     getHole : Tac Term
@@ -57,7 +63,6 @@ record TacCore : Setω where
   macro
     run : Tac ⊤ → TC.Tactic
     run tac = runTac tac
-
 
 private
   record Goal : Set where
@@ -171,32 +176,32 @@ private
   bindTac skipTac g = skipTac
   bindTac (forkTac tac₁ tac₂) g = forkTac (bindTac tac₁ g) (bindTac tac₂ g)
 
--- TODO: these could be made private too once #3479 is fixed
-instance
-  Functor′Tac' : Functor′ {ℓ} {ℓ′} Tac
-  Functor′Tac' .fmap′ = fmapTac
 
-  FunctorTac' : Functor {ℓ} Tac
-  FunctorTac' .fmap = fmapTac
+  instance
+    Functor′Tac' : Functor′ {ℓ} {ℓ′} Tac
+    Functor′Tac' .fmap′ = fmapTac
 
-  Applicative′Tac' : Applicative′ {ℓ} {ℓ′} Tac
-  Applicative′Tac' ._<*>′_ = monadAp′ bindTac
+    FunctorTac' : Functor {ℓ} Tac
+    FunctorTac' .fmap = fmapTac
 
-  ApplicativeTac' : Applicative (Tac {ℓ})
-  ApplicativeTac' .pure  = done
-  ApplicativeTac' ._<*>_ = monadAp bindTac
+    Applicative′Tac' : Applicative′ {ℓ} {ℓ′} Tac
+    Applicative′Tac' ._<*>′_ = monadAp′ bindTac
 
-  Monad′Tac' : Monad′ {ℓ} {ℓ′} Tac
-  Monad′Tac' ._>>=_ = bindTac
+    ApplicativeTac' : Applicative (Tac {ℓ})
+    ApplicativeTac' .pure  = done
+    ApplicativeTac' ._<*>_ = monadAp bindTac
 
-  MonadTac' : Monad (Tac {ℓ})
-  MonadTac' .Monad._>>=_ = bindTac
+    Monad′Tac' : Monad′ {ℓ} {ℓ′} Tac
+    Monad′Tac' ._>>=_ = bindTac
 
-  ZeroTac' : FunctorZero (Tac {ℓ})
-  ZeroTac' .empty = failTac
+    MonadTac' : Monad (Tac {ℓ})
+    MonadTac' .Monad._>>=_ = bindTac
 
-  AlternativeTac' : Alternative (Tac {ℓ})
-  AlternativeTac' ._<|>_ = chooseTac
+    ZeroTac' : FunctorZero (Tac {ℓ})
+    ZeroTac' .empty = failTac
+
+    AlternativeTac' : Alternative (Tac {ℓ})
+    AlternativeTac' ._<|>_ = chooseTac
 
 tacCore : TacCore
 tacCore = λ where
