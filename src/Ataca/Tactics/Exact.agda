@@ -13,7 +13,7 @@ exact' solution = unlessSolved $ do
   hole ← getHole
   debug "exact" 10 $ strErr "Solving goal" ∷ termErr hole ∷ strErr "with solution" ∷ termErr solution ∷ []
   unify hole solution
-  skip
+  qed
 
 macro
   exact : A → TC.Tactic
