@@ -195,7 +195,7 @@ private
     Monad′Tac' ._>>=_ = bindTac
 
     MonadTac' : Monad (Tac {ℓ})
-    MonadTac' .Monad._>>=_ = bindTac
+    MonadTac' .Prelude._>>=_ = bindTac
 
     ZeroTac' : FunctorZero (Tac {ℓ})
     ZeroTac' .empty = failTac
