@@ -28,28 +28,29 @@ destruct' u = do
     tel , ctarget ← liftTC $ telePi ct
     let ais = teleArgInfos tel
     debug "destruct" 40 $ strErr "Constructor" ∷ termErr (con c []) ∷ strErr "with type" ∷ termErr ct ∷ []
-    ?rhs ← newMeta!
     let pat : Pattern
         pat = con (quote ⌊_⌋) (TC.vArg (con c $ map (λ i → arg i (var "_")) ais) ∷ [])
-    return $ (?rhs , tel) ,  clause (TC.vArg pat ∷ []) ?rhs
+    return $ clause (TC.vArg pat ∷ []) unknown
 
   let
     solution : Term
     solution = def (quote split) (
       TC.vArg u ∷
-      TC.vArg (pat-lam (map snd cls) []) ∷ [])
+      TC.vArg (pat-lam cls []) ∷ [])
 
   debug "destruct" 10 (strErr "Destruct solution: " ∷ termErr solution ∷ [])
 
   hole ← getHole
   unify hole solution
-  forEach cls λ where
-    ((?rhs , tel) , _) → do
-      traverse addCtx tel
+  pat-lam cls' _ ← reduce hole
+    where _ → liftTC $ TC.typeError (strErr "IMPOSSIBLE" ∷ [])
+  forEach cls' λ where
+    (clause ps ?rhs) → do
       rhsType ← inferType ?rhs
       debug "destruct" 20 (strErr "Destruct subgoal: " ∷ termErr ?rhs ∷ strErr ":" ∷ termErr rhsType ∷ [])
-      debug "destruct" 20 (strErr "Destruct subgoal context: " ∷ map (termErr ∘ unArg) tel)
+      -- TODO: Set the right context
       setHole ?rhs
+    (absurd-clause _) → liftTC $ TC.typeError (strErr "IMPOSSIBLE" ∷ [])
 
 
 
