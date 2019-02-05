@@ -16,7 +16,7 @@ refineN' is hd = do
   where
     loop : List ArgInfo → (List (Arg Term) → Term) → List Term → Tac ⊤
     loop [] hd subgoals       = do
-      hole ← normalise =<< getHole
+      hole ← getHole
       debug "refine" 15 $ strErr "Solving goal" ∷ termErr hole ∷ strErr "with solution" ∷ termErr (hd []) ∷ []
       unify hole (hd [])
       debug "refine" 15 $ strErr "Instantiation successful, new subgoals" ∷ map termErr subgoals
