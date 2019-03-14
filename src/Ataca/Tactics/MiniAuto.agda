@@ -1,4 +1,4 @@
-{-# OPTIONS --without-K --postfix-projections #-}
+{-# OPTIONS --postfix-projections #-}
 
 module Ataca.Tactics.MiniAuto where
 
