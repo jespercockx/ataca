@@ -1,50 +1,23 @@
-open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Container.List
-open import Container.Traversable
-import Tactic.Reflection
 
 open import Ataca.Utils
 
 module Ataca.Core where
-
-module TC = Tactic.Reflection
-open TC using
-  ( Name ; Term ; Type ; Arg ; ArgInfo ; unArg ; getArgInfo
-  ; Abs ; unAbs
-  ; Visibility ; getVisibility
-  ; Relevance ; getRelevance
-  ; Telescope
-  ; Pattern ; Clause ; Definition
-  ; TC ; ErrorPart
-  ) public
-open Term       public
-open Arg        public
-open Abs        public
-open ArgInfo    public
-open Visibility public
-open Relevance  public
-open Pattern    public
-open Clause     public
-open Definition public
-open ErrorPart  public
 
 record TacCore : Setω where
   field
     Tac : (A : Set ℓ) → Set ℓ
 
     -- run tactic as Agda macro
-    runTac : Tac ⊤ → TC.Tactic
+    runTac : Tac ⊤ → Term → TC ⊤
 
     -- instances
     instance
-      {{FunctorTac}}      : Functor (Tac {ℓ})
-      {{FunctorTac′}}     : Functor′ {ℓ} {ℓ′} Tac
-      {{ApplicativeTac}}  : Applicative (Tac {ℓ})
-      {{ApplicativeTac′}} : Applicative′ {ℓ} {ℓ′} Tac
-      {{MonadTac}}        : Monad (Tac {ℓ})
-      {{MonadTac′}}       : Monad′ {ℓ} {ℓ′} Tac
-      {{FunctorZeroTac}}  : FunctorZero (Tac {ℓ})
-      {{AlternativeTac}}  : Alternative (Tac {ℓ})
+      {{functorTac}}         : Functor (Tac {ℓ})
+      {{functorLiftTac}}     : FunctorLift Tac ℓ A
+      {{applicativeTac}}     : Applicative (Tac {ℓ})
+      {{monadTac}}           : Monad (Tac {ℓ})
+      {{applicativeZeroTac}} : ApplicativeZero (Tac {ℓ})
+      {{alternativeTac}}     : Alternative (Tac {ℓ})
 
     -- goal manipulation
     getHole : Tac Term
@@ -61,7 +34,7 @@ record TacCore : Setω where
     skip    : Tac A
 
   macro
-    run : Tac ⊤ → TC.Tactic
+    run : Tac ⊤ → Term → TC ⊤
     run tac = runTac tac
 
 private
@@ -70,7 +43,7 @@ private
     field
       theHole : Term
       goalCtx : Telescope
-  open Goal public
+  open Goal
 
   {-# NO_POSITIVITY_CHECK #-}
   data Tac (A : Set ℓ) : Set ℓ where
@@ -110,7 +83,7 @@ private
   runTac : Tac A → Goal → TC (Maybe (List (A × Goal)))
   runTac tac goal = runTac' tac goal (return $ just [])
 
-  toMacro : Tac ⊤ → TC.Tactic
+  toMacro : Tac ⊤ → Term → TC ⊤
   toMacro tac hole = do
     `tac ← TC.quoteTC tac
     holeType ← TC.inferType hole
@@ -132,7 +105,7 @@ private
   getCtx = goalTac λ goal → done (goal .goalCtx) , goal
 
   addCtx : Arg Type → Tac ⊤
-  addCtx b = goalTac λ goal → done _ , mkGoal (goal .theHole) (b ∷ goal .goalCtx)
+  addCtx b = goalTac λ goal → done _ , mkGoal (goal .theHole) (("x" , b) ∷ goal .goalCtx)
 
   fork : Tac Bool
   fork = forkTac (done false) (done true)
@@ -140,7 +113,7 @@ private
   liftTC' : TC (Tac A) → TC A → Tac A
   liftTC' err m = goalTac λ goal → (_, goal) $
     step $ TC.catchTC
-      (done <$> foldl (flip TC.extendContext) m (goal .goalCtx))
+      (done <$> foldl (flip TC.extendContext) m (map snd $ goal .goalCtx))
       err
 
   -- Run TC action, backtracking on failure
@@ -149,17 +122,17 @@ private
 
   -- Run TC action, raising IMPOSSIBLE on failure
   liftTC! : TC A → Tac A
-  liftTC! m = liftTC' fail m
+  liftTC! {A = A} m = liftTC' fail m
     where
-      fail : TC _
-      fail = do
-        `m ← TC.quoteTC m
-        TC.typeError $ strErr "Primitive TC action" ∷ termErr `m ∷ strErr "failed!" ∷ []
+      fail : TC (Tac A)
+      fail = TC.bindTC
+        (TC.quoteTC m)
+        (λ `m → TC.typeError $ strErr "Primitive TC action" ∷ termErr `m ∷ strErr "failed!" ∷ [])
 
   {-# TERMINATING #-}
-  fmapTac : (A → B) → Tac A → Tac B
+  fmapTac : (A → B) → Tac {ℓ} A → Tac {ℓ′} B
   fmapTac g (done x  ) = done $ g x
-  fmapTac g (step mtac) = step $ fmapTac g <$>′ mtac
+  fmapTac {ℓ = ℓ} {ℓ′ = ℓ′} g (step mtac) = step $ lowerF {ℓ = ℓ} (mapLift′ (fmapTac g) <$> liftF {ℓ = ℓ′} mtac)
   fmapTac g (goalTac f) = goalTac λ goal → first (fmapTac g) $ f goal
   fmapTac g failTac = failTac
   fmapTac g (chooseTac tac₁ tac₂) = chooseTac (fmapTac g tac₁) (fmapTac g tac₂)
@@ -167,41 +140,44 @@ private
   fmapTac g (forkTac tac₁ tac₂) = forkTac (fmapTac g tac₁) (fmapTac g tac₂)
 
   {-# TERMINATING #-}
-  bindTac : Tac A → (A → Tac B) → Tac B
+  bindTac : Tac {ℓ} A → (A → Tac {ℓ} B) → Tac B
   bindTac (done x) g = g x
-  bindTac (step mtac) g = step $ flip bindTac g <$>′ mtac
+  bindTac (step mtac) g = step $ flip bindTac g <$> mtac
   bindTac (goalTac f) g = goalTac λ goal → first (flip bindTac g) $ f goal
   bindTac failTac g = failTac
   bindTac (chooseTac tac₁ tac₂) g = chooseTac (bindTac tac₁ g) (bindTac tac₂ g)
   bindTac skipTac g = skipTac
   bindTac (forkTac tac₁ tac₂) g = forkTac (bindTac tac₁ g) (bindTac tac₂ g)
 
+  {-# TERMINATING #-}
+  liftFTac : Tac A → Tac (Lift ℓ A)
+  liftFTac = fmapTac lift
+
+  lowerFTac : Tac (Lift ℓ A) → Tac A
+  lowerFTac = fmapTac lower
 
   instance
-    Functor′Tac' : Functor′ {ℓ} {ℓ′} Tac
-    Functor′Tac' .fmap′ = fmapTac
+    monadTac : Monad (Tac {ℓ})
+    monadTac .return = done
+    monadTac ._>>=_  = bindTac
 
-    FunctorTac' : Functor {ℓ} Tac
-    FunctorTac' .fmap = fmapTac
+    functorTac : Functor (Tac {ℓ})
+    functorTac = Monad.rawFunctor it
 
-    Applicative′Tac' : Applicative′ {ℓ} {ℓ′} Tac
-    Applicative′Tac' ._<*>′_ = monadAp′ bindTac
+    applicativeTac : Applicative (Tac {ℓ})
+    applicativeTac = Monad.rawIApplicative it
 
-    ApplicativeTac' : Applicative (Tac {ℓ})
-    ApplicativeTac' .pure  = done
-    ApplicativeTac' ._<*>_ = monadAp bindTac
+    applicativeZeroTac : ApplicativeZero (Tac {ℓ})
+    applicativeZeroTac .ApplicativeZero.applicative = it
+    applicativeZeroTac .empty = failTac
 
-    Monad′Tac' : Monad′ {ℓ} {ℓ′} Tac
-    Monad′Tac' ._>>=_ = bindTac
+    alternativeTac : Alternative (Tac {ℓ})
+    alternativeTac .Alternative.applicativeZero = it
+    alternativeTac ._<|>_ = chooseTac
 
-    MonadTac' : Monad (Tac {ℓ})
-    MonadTac' .Prelude._>>=_ = bindTac
-
-    ZeroTac' : FunctorZero (Tac {ℓ})
-    ZeroTac' .empty = failTac
-
-    AlternativeTac' : Alternative (Tac {ℓ})
-    AlternativeTac' ._<|>_ = chooseTac
+    functorLiftTac : FunctorLift Tac ℓ A
+    functorLiftTac .liftF  = liftFTac
+    functorLiftTac .lowerF = lowerFTac
 
 tacCore : TacCore
 tacCore = λ where

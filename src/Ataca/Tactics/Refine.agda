@@ -2,15 +2,13 @@
 
 module Ataca.Tactics.Refine where
 
-open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-
 open import Ataca.Utils
 open import Ataca.Core
 open import Ataca.Tactics.BasicTactics
 
 refineN' : List ArgInfo → (List (Arg Term) → Term) → Tac ⊤
 refineN' is hd = do
-  debug "refine" 10 $ strErr "Trying to refine goal with" ∷ termErr (hd []) ∷ strErr "applied to" ∷ strErr (show (length is)) ∷ strErr "arguments" ∷ []
+  debug "refine" 10 $ strErr "Trying to refine goal with" ∷ termErr (hd []) ∷ strErr "applied to" ∷ strErr (ℕ.show (length is)) ∷ strErr "arguments" ∷ []
   loop is hd []
 
   where
@@ -34,14 +32,14 @@ refine' u = do
     (def f [])    → ⦇ return (def f) , getType f ⦈
     (def f us)    → ⦇ return (λ vs → def f (us ++ vs)) , inferType (def f us) ⦈
     (pi a b)      → ⦇ return (const $ pi a b) , (inferType (pi a b)) ⦈
-    (agda-sort s) → ⦇ return (const $ agda-sort s) , (inferType (agda-sort s)) ⦈
+    (sort s)      → ⦇ return (const $ sort s) , (inferType (sort s)) ⦈
     (lit l)       → ⦇ return (const $ lit l) , (inferType (lit l)) ⦈
     (meta x us)   → ⦇ return (λ vs → meta x (us ++ vs)) , inferType (meta x us) ⦈
     _ → error $ strErr "Not supported by refine: " ∷ termErr u ∷ []
   is ← liftTC $ piArgInfos t
-  choice1 $ for (from 0 to (length is)) λ #args →
+  choice1 $ for (List.upTo (length is)) λ #args →
     refineN' (take #args is) hd
 
 macro
-  refine : Term → TC.Tactic
+  refine : Term → Tactic
   refine u = runTac $ refine' u

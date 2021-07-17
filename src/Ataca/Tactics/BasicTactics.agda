@@ -1,6 +1,5 @@
 module Ataca.Tactics.BasicTactics where
 
-open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
 open import Ataca.Utils
 open import Ataca.Core
 
@@ -39,7 +38,7 @@ module _ where
   unquoteTac u = liftTC! $ TC.unquoteTC u
 
   getContext : Tac Telescope
-  getContext = liftTC! TC.getContext
+  getContext = map ("x" ,_) <$> liftTC! TC.getContext
 
   freshName : String → Tac Name
   freshName n = liftTC! $ TC.freshName n
@@ -60,12 +59,12 @@ module _ where
   getDefinition n = liftTC! $ TC.getDefinition n
 
   error : List ErrorPart → Tac A
-  error msg = liftTC! $ do
-    TC.debugPrint "tac" 1 msg
-    TC.typeError []
+  error msg = liftTC! $ TC.bindTC
+    (TC.debugPrint "tac" 1 msg)
+    (λ _ → TC.typeError [])
 
-  debug : String → Nat → List ErrorPart → Tac ⊤
-  debug s n msg = liftTC! $ TC.debugPrint ("tac." <> s) n msg
+  debug : String → ℕ → List ErrorPart → Tac ⊤
+  debug s n msg = liftTC! $ TC.debugPrint ("tac." String.++ s) n msg
 
 backtrack : Tac A
 backtrack = empty
@@ -81,41 +80,41 @@ getHoleWithType = do
 
 noMoreGoals : Tac A
 noMoreGoals = do
-  hole , holeType ← getHoleWithType
+  lift (hole , holeType) ← liftF getHoleWithType
   error $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
 
 now : Tac A → Tac B
-now tac = tac >> noMoreGoals
+now {a} {A} {b} {B} tac = lowerF {ℓ = a} (liftF {ℓ = b} tac >> noMoreGoals)
 
 try : Tac A → Tac (Maybe A)
 try tac = (just <$> tac) <|> return nothing
 
-repeat : Nat → Tac ⊤ → Tac ⊤
+repeat : ℕ → Tac ⊤ → Tac ⊤
 repeat zero    tac = return _
 repeat (suc k) tac = tac >> repeat k tac
 
-fork2 : Tac A → Tac B → Tac (Either A B)
-fork2 tac₁ tac₂ =
-  fork >>= λ where
-    false → left  <$>′ tac₁
-    true  → right <$>′ tac₂
+fork2 : Tac A → Tac B → Tac (A ⊎ B)
+fork2 {a} {A} {b} {B} tac₁ tac₂ = lowerF {ℓ = a ⊔ b} $
+  liftF {ℓ = a ⊔ b} fork >>= λ where
+    (lift false) → mapLift left <$> liftF tac₁
+    (lift true)  → mapLift right <$> liftF tac₂
 
 forkN : {A : Fin n → Set ℓ}
      → ((i : Fin n) → Tac (A i)) → Tac (Σ (Fin n) A)
 forkN {n = zero } tac = skip
 forkN {n = suc n} tac = do
-  fork2 (tac 0) (forkN (tac ∘ suc)) >>= λ where
+  fork2 (tac zero) (forkN (tac ∘ suc)) >>= λ where
     (left x)        → return $ zero , x
     (right (i , y)) → return $ suc i , y
 
 forEach : List A → (A → Tac B) → Tac B
-forEach xs f = snd <$> (forkN $ f ∘ indexVec (listToVec xs))
+forEach xs f = snd <$> (forkN $ f ∘ Vec.lookup (Vec.fromList xs))
 
 qed : Tac A
 qed = do
-  hole , holeType ← getHoleWithType
-  reduce hole >>= λ where
-    hole@(meta _ _) → do
+  lift (hole , holeType) ← liftF getHoleWithType
+  liftF (reduce hole) >>= λ where
+    (lift hole@(meta _ _)) → do
       --debug "qed" 25 $ strErr "Unsolved subgoal: " ∷ termErr hole ∷ strErr ":" ∷ termErr holeType ∷ []
       backtrack
     _               → skip

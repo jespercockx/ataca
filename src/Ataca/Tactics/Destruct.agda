@@ -2,9 +2,6 @@
 
 module Ataca.Tactics.Destruct where
 
-open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-open import Container.Traversable
-
 open import Ataca.Utils
 open import Ataca.Core
 open import Ataca.Tactics.BasicTactics
@@ -27,16 +24,17 @@ destruct' u = do
     ct   ← getType c
     tel , ctarget ← liftTC $ telePi ct
     let ais = teleArgInfos tel
+        xs  = List.downFrom (length tel)
     debug "destruct" 40 $ strErr "Constructor" ∷ termErr (con c []) ∷ strErr "with type" ∷ termErr ct ∷ []
     let pat : Pattern
-        pat = con (quote ⌊_⌋) (TC.vArg (con c $ map (λ i → arg i (var "_")) ais) ∷ [])
-    return $ clause (TC.vArg pat ∷ []) unknown
+        pat = con (quote ⌊_⌋) (vArg (con c $ zipWith (λ i x → arg i (var x)) ais xs) ∷ [])
+    return $ clause tel (vArg pat ∷ []) unknown
 
   let
     solution : Term
     solution = def (quote split) (
-      TC.vArg u ∷
-      TC.vArg (pat-lam cls []) ∷ [])
+      vArg u ∷
+      vArg (pat-lam cls []) ∷ [])
 
   debug "destruct" 10 (strErr "Destruct solution: " ∷ termErr solution ∷ [])
 
@@ -45,12 +43,12 @@ destruct' u = do
   pat-lam cls' _ ← reduce hole
     where _ → liftTC $ TC.typeError (strErr "IMPOSSIBLE" ∷ [])
   forEach cls' λ where
-    (clause ps ?rhs) → do
+    (clause _ ps ?rhs) → do
       rhsType ← inferType ?rhs
       debug "destruct" 20 (strErr "Destruct subgoal: " ∷ termErr ?rhs ∷ strErr ":" ∷ termErr rhsType ∷ [])
       -- TODO: Set the right context
       setHole ?rhs
-    (absurd-clause _) → liftTC $ TC.typeError (strErr "IMPOSSIBLE" ∷ [])
+    (absurd-clause _ _) → liftTC $ TC.typeError (strErr "IMPOSSIBLE" ∷ [])
 
 
 

@@ -2,14 +2,12 @@
 
 module Ataca.Tactics.Constructor where
 
-open import Prelude hiding (_>>=_; _>>_; abs) renaming (_>>=′_ to _>>=_; _>>′_ to _>>_)
-
 open import Ataca.Utils
 open import Ataca.Core
 open import Ataca.Tactics.BasicTactics
 open import Ataca.Tactics.Refine
 
-isDataOrRecord : Type → Tac (List (Arg Term) × List Name × Nat)
+isDataOrRecord : Type → Tac (List (Arg Term) × List Name × ℕ)
 isDataOrRecord t = do
   def d us ← reduce t
     where _ → do
@@ -18,11 +16,11 @@ isDataOrRecord t = do
   debug "constr" 30 $ strErr "Found a def" ∷ termErr (def d []) ∷ strErr "applied to arguments" ∷ map (termErr ∘ unArg) us
   getDefinition d >>= λ where
     (data-type #pars cons) → do
-      debug "constr" 20 $ strErr "It's a datatype applied to" ∷ strErr (show #pars) ∷ strErr "parameters" ∷ []
+      debug "constr" 20 $ strErr "It's a datatype applied to" ∷ strErr (ℕ.show #pars) ∷ strErr "parameters" ∷ []
       return $ us , cons ,′ #pars
-    (record-type c fields) → do
+    (record′ c fields) → do
       debug "constr" 20 $ strErr "It's a record type" ∷ []
-      return $ us , singleton c , length us
+      return $ us , [ c ] , length us
     _                      → do
       debug "introConstructor" 9 $ strErr "Not a data/record type: " ∷ termErr t ∷ []
       backtrack
@@ -47,8 +45,8 @@ introConstructor' = do
   refineN' is c
 
 macro
-  introConstructor : TC.Tactic
+  introConstructor : Tactic
   introConstructor = runTac introConstructor'
 
-  introConstructors : TC.Tactic
+  introConstructors : Tactic
   introConstructors = runTac $ repeat 10 (introConstructor' <|> return _)
