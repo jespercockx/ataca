@@ -113,7 +113,7 @@ private
   liftTC' : TC (Tac A) → TC A → Tac A
   liftTC' err m = goalTac λ goal → (_, goal) $
     step $ TC.catchTC
-      (done <$> foldl (flip TC.extendContext) m (map snd $ goal .goalCtx))
+      (done <$> foldl (flip (uncurry TC.extendContext)) m (goal .goalCtx))
       err
 
   -- Run TC action, backtracking on failure
