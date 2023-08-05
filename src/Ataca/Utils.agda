@@ -14,7 +14,7 @@ open import Data.Nat.Base public using (ℕ; zero; suc) hiding (module ℕ)
 module ℕ where
   open import Data.Nat.Base public
   open import Data.Nat.Show public
-open import Data.Product public using (Σ; _×_; _,_; _,′_) renaming (proj₁ to fst; proj₂ to snd; map₁ to first; map₂ to second)
+open import Data.Product public using (Σ; _×_; _,_; _,′_; curry; uncurry) renaming (proj₁ to fst; proj₂ to snd; map₁ to first; map₂ to second)
 open import Data.String.Base public using (String)
 module String = Data.String.Base
 open import Data.Sum.Base public using (_⊎_) renaming (inj₁ to left; inj₂ to right)
@@ -122,7 +122,7 @@ makeImplicit (arg (arg-info v r) x) = arg (arg-info hidden r) x
 
 extendCtxTel : Telescope → TC A → TC A
 extendCtxTel []              = id
-extendCtxTel ((_ , a) ∷ tel) = TC.extendContext a ∘ extendCtxTel tel
+extendCtxTel ((x , a) ∷ tel) = TC.extendContext x a ∘ extendCtxTel tel
 
 goalErr : Term → TC (List TC.ErrorPart)
 goalErr goal = do
@@ -141,7 +141,7 @@ piView = λ where
 {-# TERMINATING #-}
 telePi : Type → TC (Telescope × Type)
 telePi t = piView t >>= λ where
-  (just (a , (abs x b))) → first ((x , a) ∷_) <$> TC.extendContext a (telePi b)
+  (just (a , (abs x b))) → first ((x , a) ∷_) <$> TC.extendContext x a (telePi b)
   nothing → return ([] , t)
 
 getArgInfo : Arg A → ArgInfo

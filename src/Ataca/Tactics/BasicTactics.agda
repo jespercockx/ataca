@@ -38,7 +38,7 @@ module _ where
   unquoteTac u = liftTC! $ TC.unquoteTC u
 
   getContext : Tac Telescope
-  getContext = map ("x" ,_) <$> liftTC! TC.getContext
+  getContext = liftTC! TC.getContext
 
   freshName : String → Tac Name
   freshName n = liftTC! $ TC.freshName n
