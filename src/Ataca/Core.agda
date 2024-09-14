@@ -158,22 +158,21 @@ private
 
   instance
     monadTac : Monad (Tac {ℓ})
-    monadTac .return = done
-    monadTac ._>>=_  = bindTac
+    monadTac = mkMonad _ done bindTac
 
     functorTac : Functor (Tac {ℓ})
     functorTac = Monad.rawFunctor it
 
     applicativeTac : Applicative (Tac {ℓ})
-    applicativeTac = Monad.rawIApplicative it
+    applicativeTac = Monad.rawApplicative it
 
     applicativeZeroTac : ApplicativeZero (Tac {ℓ})
-    applicativeZeroTac .ApplicativeZero.applicative = it
-    applicativeZeroTac .empty = failTac
+    applicativeZeroTac .ApplicativeZero.rawApplicative = it
+    applicativeZeroTac .ApplicativeZero.rawEmpty .Empty.empty = failTac
 
     alternativeTac : Alternative (Tac {ℓ})
-    alternativeTac .Alternative.applicativeZero = it
-    alternativeTac ._<|>_ = chooseTac
+    alternativeTac .Alternative.rawApplicativeZero = it
+    alternativeTac .Alternative.rawChoice .Choice._<|>_ = chooseTac
 
     functorLiftTac : FunctorLift Tac ℓ A
     functorLiftTac .liftF  = liftFTac
