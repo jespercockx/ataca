@@ -28,29 +28,31 @@ open import Level public using (Level; Setω; 0ℓ; _⊔_; Lift; lift; lower) re
 
 open import Relation.Binary.PropositionalEquality using (_≡_; refl) public
 
-open import Reflection.Term public
-open import Reflection.Name public using (Name)
-open import Reflection.Definition public hiding (_≟_)
-open import Reflection.Abstraction public using (Abs; abs; unAbs)
-open import Reflection.Argument public using (Arg; arg; vArg; hArg; unArg)
-open import Reflection.Argument.Modality using (Modality) public
-open import Reflection.Argument.Visibility using (Visibility; visible; instance′; hidden) public
-open import Reflection.Argument.Relevance using (Relevance; relevant; irrelevant) public
-open import Reflection.Argument.Information public using (ArgInfo; arg-info; visibility; modality)
+open import Reflection.AST.Term public
+open import Reflection.AST.Name public using (Name)
+open import Reflection.AST.Definition public hiding (_≟_)
+open import Reflection.AST.Abstraction public using (Abs; abs; unAbs)
+open import Reflection.AST.Argument public using (Arg; arg; vArg; hArg; unArg)
+open import Reflection.AST.Argument.Modality using (Modality) public
+open import Reflection.AST.Argument.Visibility using (Visibility; visible; instance′; hidden) public
+open import Reflection.AST.Argument.Relevance using (Relevance; relevant; irrelevant) public
+open import Reflection.AST.Argument.Information public using (ArgInfo; arg-info; visibility; modality)
 
-open import Data.List.Instances public hiding (listMonadT)
-open import Data.Maybe.Instances public hiding (maybeMonadT)
-open import Reflection.TypeChecking.Monad.Instances public
+open import Data.List.Instances public -- hiding (listMonadT)
+open import Data.Maybe.Instances public -- hiding (maybeMonadT)
+open import Reflection.TCM.Instances public
 
-open import Reflection.TypeChecking.Monad public using (ErrorPart; strErr; termErr)
+open import Reflection.TCM public using (ErrorPart; strErr; termErr)
 
-open import Category.Functor public using () renaming (RawFunctor to Functor)
-open import Category.Applicative public using ()
+open import Effect.Empty public using () renaming (RawEmpty to Empty)
+open import Effect.Choice public using () renaming (RawChoice to Choice)
+open import Effect.Functor public using () renaming (RawFunctor to Functor)
+open import Effect.Applicative public using ()
   renaming ( RawApplicative to Applicative
            ; RawApplicativeZero to ApplicativeZero
            ; RawAlternative to Alternative
            )
-open import Category.Monad public using () renaming ( RawMonad to Monad )
+open import Effect.Monad public using () renaming ( RawMonad to Monad ; mkRawMonad to mkMonad)
 open Functor         {{...}} public using (_<$>_; _<$_)
 open Applicative     {{...}} public using (pure) renaming (_⊛_ to _<*>_)
 open ApplicativeZero {{...}} public using () renaming (∅ to empty)
@@ -77,7 +79,7 @@ void m = const _ <$> m
 
 choice1 : {{Alternative F}} → List (F A) → F A
 choice1 []       = empty
-  where instance applicativeZeroF = Alternative.applicativeZero it
+  where instance applicativeZeroF = Alternative.rawApplicativeZero it
 choice1 (f ∷ []) = f
 choice1 (f ∷ fs) = f <|> choice1 fs
 
@@ -110,7 +112,7 @@ open FunctorLift {{...}} public
 -- Reflection stuff
 
 module TC where
-  open import Reflection.TypeChecking.Monad public
+  open import Reflection.TCM public
   newMeta! = newMeta unknown
 
 TC = TC.TC
@@ -155,5 +157,5 @@ piArgInfos t = teleArgInfos ∘ fst <$> telePi t
 
 instance
   functorLiftTC : FunctorLift TC ℓ A
-  functorLiftTC .liftF   = λ mx → TC.bindTC mx (λ x → TC.return (lift x))
-  functorLiftTC .lowerF  = λ mx → TC.bindTC mx (λ x → TC.return (lower x))
+  functorLiftTC .liftF   = λ mx → TC.bindTC mx (λ x → TC.pure (lift x))
+  functorLiftTC .lowerF  = λ mx → TC.bindTC mx (λ x → TC.pure (lower x))
